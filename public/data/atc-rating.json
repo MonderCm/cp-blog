@@ -1,0 +1,33 @@
+{
+  "handle": "tourist",
+  "rating": 3797,
+  "rank": "红",
+  "max_rating": 0,
+  "max_rank": "灰",
+  "history": [
+    {
+      "date": "2025-03",
+      "rating": 3833
+    },
+    {
+      "date": "2025-04",
+      "rating": 3820
+    },
+    {
+      "date": "2025-09",
+      "rating": 3785
+    },
+    {
+      "date": "2025-10",
+      "rating": 3776
+    },
+    {
+      "date": "2025-12",
+      "rating": 3830
+    },
+    {
+      "date": "2026-03",
+      "rating": 3797
+    }
+  ]
+}

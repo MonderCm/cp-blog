@@ -1,0 +1,33 @@
+{
+  "handle": "tourist",
+  "rating": 3473,
+  "rank": "legendary grandmaster",
+  "max_rating": 4009,
+  "max_rank": "tourist",
+  "history": [
+    {
+      "date": "2025-11",
+      "rating": 3757
+    },
+    {
+      "date": "2025-12",
+      "rating": 3718
+    },
+    {
+      "date": "2026-01",
+      "rating": 3533
+    },
+    {
+      "date": "2026-02",
+      "rating": 3718
+    },
+    {
+      "date": "2026-03",
+      "rating": 3755
+    },
+    {
+      "date": "2026-04",
+      "rating": 3544
+    }
+  ]
+}

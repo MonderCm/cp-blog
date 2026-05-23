@@ -1,0 +1,33 @@
+name: 采集 CP 数据
+
+on:
+  schedule:
+    - cron: "0 8 * * *"        # 每天北京时间 16:00 (UTC 8:00)
+  workflow_dispatch:            # 手动触发
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Run crawler
+        env:
+          CF_USERNAME: ${{ vars.CF_USERNAME }}
+          ATC_USERNAME: ${{ vars.ATC_USERNAME }}
+        run: python scripts/crawler.py
+
+      - name: Commit data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/data/
+          git diff --staged --quiet || (git commit -m "chore: 更新 CP 数据 [skip ci]" && git push)

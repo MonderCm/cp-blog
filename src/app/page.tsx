@@ -1,65 +1,120 @@
-import Image from "next/image";
+import fs from "fs";
+import path from "path";
+import HomePageClient, {
+  type RatingData,
+  type SubmissionDay,
+  type Contest,
+  type ProblemEntry,
+} from "@/components/HomePageClient";
 
-export default function Home() {
+/* ========== 默认数据（JSON 文件缺失时回退） ========== */
+
+const PROFILE = {
+  avatar: "https://avatars.githubusercontent.com/u/583231?v=4",
+  name: "huanqih",
+  bio: "每天进步 1%，一年后就是 37.8 倍",
+  signature: "代码改变世界 · 一题一世界，一步一乾坤",
+  location: "北京",
+  cfUsername: "tourist",
+  atcUsername: "tourist",
+};
+
+const DEFAULT_CF_RATING: RatingData = {
+  handle: "tourist", rating: 0, rank: "N/A", maxRating: 0, maxRank: "N/A", history: [],
+};
+const DEFAULT_ATC_RATING: RatingData = {
+  handle: "tourist", rating: 0, rank: "N/A", maxRating: 0, maxRank: "N/A", history: [],
+};
+
+/* ========== 辅助函数 ========== */
+
+function loadJson<T>(filePath: string, fallback: T): T {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    const raw = fs.readFileSync(filePath, "utf-8");
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * 将爬虫输出的 { "2026-05-22": [...], "2026-05-21": [...] } 转为
+ * { date: string; problems: ProblemEntry[] }[] （按日期倒序）
+ */
+function ungroupSubmissions(grouped: Record<string, Omit<ProblemEntry, "date">[]>): SubmissionDay[] {
+  return Object.entries(grouped)
+    .map(([date, problems]) => ({ date, problems: problems as ProblemEntry[] }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** 拼接标签供热力图使用 */
+function buildHeatmapData(cf: SubmissionDay[], atc: SubmissionDay[]): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  for (const day of cf) {
+    const tags = day.problems.flatMap((p) => p.tags);
+    if (tags.length) map[day.date] = tags;
+  }
+  for (const day of atc) {
+    const tags = day.problems.flatMap((p) => p.tags);
+    if (tags.length) {
+      map[day.date] = [...(map[day.date] || []), ...tags];
+    }
+  }
+  return map;
+}
+
+/* ========== 构建时数据加载 ========== */
+
+const DATA_DIR = path.join(process.cwd(), "public", "data");
+
+export default async function Home() {
+  // Rating
+  const cfRating = loadJson<RatingData>(
+    path.join(DATA_DIR, "cf-rating.json"),
+    DEFAULT_CF_RATING,
+  );
+  const atcRating = loadJson<RatingData>(
+    path.join(DATA_DIR, "atc-rating.json"),
+    DEFAULT_ATC_RATING,
+  );
+
+  // Submissions（爬虫按日期分组存储）
+  const cfGrouped = loadJson<Record<string, ProblemEntry[]>>(
+    path.join(DATA_DIR, "cf-submissions.json"),
+    {},
+  );
+  const atcGrouped = loadJson<Record<string, ProblemEntry[]>>(
+    path.join(DATA_DIR, "atc-submissions.json"),
+    {},
+  );
+  const cfSubmissions = ungroupSubmissions(cfGrouped);
+  const atcSubmissions = ungroupSubmissions(atcGrouped);
+
+  // Contests
+  const contestsRaw = loadJson<{
+    cf_contests: Contest[];
+    atc_contests: Contest[];
+  }>(
+    path.join(DATA_DIR, "contests.json"),
+    { cf_contests: [], atc_contests: [] },
+  );
+  const cfContests = contestsRaw.cf_contests;
+  const atcContests = contestsRaw.atc_contests;
+
+  // Heatmap
+  const heatmapData = buildHeatmapData(cfSubmissions, atcSubmissions);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <HomePageClient
+      profile={PROFILE}
+      cfRating={cfRating}
+      atcRating={atcRating}
+      cfSubmissions={cfSubmissions}
+      atcSubmissions={atcSubmissions}
+      cfContests={cfContests}
+      atcContests={atcContests}
+      heatmapData={heatmapData}
+    />
   );
 }
