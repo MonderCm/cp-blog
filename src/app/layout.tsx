@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, DM_Sans } from "next/font/google";
 import ParticleSphere from "@/components/ParticleSphere";
+import DynamicBackground from "@/components/DynamicBackground";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -28,7 +29,8 @@ export default function RootLayout({
       lang="zh-CN"
       className={`${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-background text-foreground" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <body className="min-h-full text-foreground" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+        <DynamicBackground />
         <ParticleSphere />
         <main className="relative z-20">{children}</main>
       </body>

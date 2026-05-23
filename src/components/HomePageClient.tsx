@@ -309,12 +309,6 @@ export default function HomePageClient({
 
         {/* ---- 比赛日历 ---- */}
         <section className="mb-10">
-          <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-muted-foreground">
-              <path d="M4 1.5a.5.5 0 0 1 .5.5v1h7v-1a.5.5 0 0 1 1 0v1h1.5A1.5 1.5 0 0 1 15.5 4.5v9a1.5 1.5 0 0 1-1.5 1.5H2A1.5 1.5 0 0 1 .5 13.5v-9A1.5 1.5 0 0 1 2 3h1.5v-1a.5.5 0 0 1 .5-.5zM2 4a.5.5 0 0 0-.5.5V6h13V4.5A.5.5 0 0 0 14 4H2zm-.5 3v6.5a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5V7h-14z" />
-            </svg>
-            即将举办的比赛
-          </h2>
           <ContestCalendar cfContests={cfContests} atcContests={atcContests} />
         </section>
 
