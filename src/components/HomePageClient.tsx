@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navbar from "@/components/Navbar";
 import RatingCard from "@/components/RatingCard";
 import ContestCalendar from "@/components/ContestCalendar";
@@ -65,6 +65,29 @@ interface Props {
   heatmapData: Record<string, string[]>;
 }
 
+/* ========== localStorage 持久化 ========== */
+
+const STORAGE_KEY = "cp-blog-profile";
+
+function loadProfile(fallback: ProfileData): ProfileData {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      return { ...fallback, ...saved };
+    }
+  } catch { /* ignore parse errors */ }
+  return fallback;
+}
+
+function saveProfile(data: ProfileData) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch { /* ignore quota errors */ }
+}
+
 /* ========== 组件 ========== */
 
 export default function HomePageClient({
@@ -77,8 +100,22 @@ export default function HomePageClient({
   atcContests,
   heatmapData,
 }: Props) {
-  const [profile, setProfile] = useState(initialProfile);
+  const [profile, setProfile] = useState(() => loadProfile(initialProfile));
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  const handleSave = useCallback(
+    (data: ProfileData) => {
+      const merged = { ...profile, ...data };
+      setProfile(merged);
+      saveProfile(merged);
+    },
+    [profile],
+  );
 
   return (
     <>
@@ -185,7 +222,7 @@ export default function HomePageClient({
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         profile={profile}
-        onSave={(data) => setProfile({ ...profile, ...data })}
+        onSave={handleSave}
       />
     </>
   );
