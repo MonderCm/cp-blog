@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CP Blog - 项目架构梳理</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #8b8d98;
+    --accent: #818cf8;
+    --accent2: #34d399;
+    --accent3: #f59e0b;
+    --accent4: #f472b6;
+    --code-bg: #12141c;
+    --tag-bg: rgba(129,140,248,0.12);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 2.5rem; }
+  h2 { font-size: 1.3rem; font-weight: 600; margin: 2rem 0 1rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 1.2rem 0 0.6rem; color: var(--accent2); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  .tag {
+    display: inline-block;
+    background: var(--tag-bg);
+    color: var(--accent);
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin: 2px 2px;
+  }
+  .tag.green { background: rgba(52,211,153,0.12); color: var(--accent2); }
+  .tag.amber { background: rgba(245,158,11,0.12); color: var(--accent3); }
+  .tag.pink { background: rgba(244,114,182,0.12); color: var(--accent4); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px 12px; border-bottom: 1px solid var(--card-border); }
+  td { padding: 8px 12px; border-bottom: 1px solid rgba(42,45,58,0.5); }
+  td:first-child { font-family: 'Cascadia Code', 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent); }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--accent2);
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 0.5rem 0;
+  }
+  pre .hl { color: var(--accent); }
+  pre .hl2 { color: var(--accent2); }
+  pre .hl3 { color: var(--accent3); }
+  pre .comment { color: #555; }
+
+  .arch-box {
+    background: var(--code-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin: 1rem 0;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .arch-row { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: 0.8rem 0; }
+  .arch-node {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    position: relative;
+    min-width: 120px;
+  }
+  .arch-node.client { border-color: var(--accent); }
+  .arch-node.server { border-color: var(--accent2); }
+  .arch-node.db { border-color: var(--accent3); }
+  .arch-node.ext { border-color: var(--accent4); }
+  .arch-node .label { font-size: 0.65rem; color: var(--muted); display: block; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .arch-arrow { color: var(--muted); font-size: 1.4rem; display: flex; align-items: center; justify-content: center; }
+
+  .file-tree { font-family: 'Cascadia Code', 'JetBrains Mono', monospace; font-size: 0.78rem; line-height: 1.9; }
+  .file-tree .dir { color: var(--accent3); }
+  .file-tree .file { color: var(--text); }
+  .file-tree .desc { color: var(--muted); font-family: 'Segoe UI', sans-serif; font-size: 0.75rem; }
+
+  .phase { border-left: 3px solid var(--accent); padding-left: 1rem; margin: 1rem 0; }
+  .phase.done { border-left-color: var(--accent2); }
+  .phase.pending { border-left-color: var(--card-border); }
+  .phase-title { font-weight: 600; font-size: 0.9rem; }
+  .phase-title .badge { font-size: 0.7rem; padding: 1px 8px; border-radius: 999px; margin-left: 0.5rem; }
+  .phase-title .badge.done { background: rgba(52,211,153,0.15); color: var(--accent2); }
+  .phase-title .badge.todo { background: rgba(245,158,11,0.15); color: var(--accent3); }
+  .phase p { color: var(--muted); font-size: 0.82rem; margin-top: 0.3rem; }
+
+  .divider { height: 1px; background: var(--card-border); margin: 2rem 0; }
+
+  .kv { display: flex; gap: 0.5rem; align-items: baseline; margin: 0.2rem 0; }
+  .kv .k { color: var(--muted); font-size: 0.8rem; min-width: 100px; }
+  .kv .v { font-size: 0.85rem; }
+
+  .section-nav { position: sticky; top: 0; background: var(--bg); z-index: 10; padding: 0.8rem 0; border-bottom: 1px solid var(--card-border); margin-bottom: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .section-nav a { color: var(--muted); text-decoration: none; font-size: 0.78rem; padding: 4px 10px; border-radius: 6px; transition: all 0.2s; }
+  .section-nav a:hover { color: var(--accent); background: var(--tag-bg); }
+</style>
+</head>
+<body>
+
+<div class="section-nav">
+  <a href="#overview">概览</a>
+  <a href="#stack">技术栈</a>
+  <a href="#arch">架构图</a>
+  <a href="#routing">路由</a>
+  <a href="#schema">数据库</a>
+  <a href="#api">API</a>
+  <a href="#components">组件</a>
+  <a href="#libs">lib 层</a>
+  <a href="#files">文件结构</a>
+  <a href="#dataflow">数据流</a>
+  <a href="#progress">进度</a>
+  <a href="#constraints">约束</a>
+</div>
+
+<h1><span>CP Blog</span> 项目架构梳理</h1>
+<p class="subtitle">多用户算法竞赛刷题博客 &middot; Next.js 16 + React 19 + Prisma + Neon Postgres &middot; 最后更新 2026-06-06</p>
+
+<!-- ============ 概览 ============ -->
+<h2 id="overview">&#128270; 项目概览</h2>
+<div class="card">
+  <p>每位同学一个 <code>slug</code>，无需登录，在 <code>/u/&lt;slug&gt;</code> 看自己的 <strong>Codeforces / AtCoder / 牛客</strong> 三平台 rating 曲线 + 提交热力图 + 刷题日志 + 近期比赛。</p>
+  <div style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+    <span class="tag">多用户</span>
+    <span class="tag">无登录</span>
+    <span class="tag green">三平台</span>
+    <span class="tag amber">定时刷新</span>
+    <span class="tag pink">SSR + CSR</span>
+  </div>
+</div>
+
+<!-- ============ 技术栈 ============ -->
+<h2 id="stack">&#128295; 技术栈</h2>
+<div class="grid-3">
+  <div class="card">
+    <h3>前端</h3>
+    <div class="kv"><span class="k">框架</span><span class="v">Next.js 16.2.6 (App Router)</span></div>
+    <div class="kv"><span class="k">UI 库</span><span class="v">React 19.2.4</span></div>
+    <div class="kv"><span class="k">样式</span><span class="v">Tailwind CSS 4</span></div>
+    <div class="kv"><span class="k">图表</span><span class="v">Recharts 3.8</span></div>
+    <div class="kv"><span class="k">动画</span><span class="v">Framer Motion 12</span></div>
+    <div class="kv"><span class="k">字体</span><span class="v">DM Sans + JetBrains Mono</span></div>
+  </div>
+  <div class="card">
+    <h3>后端 / 数据</h3>
+    <div class="kv"><span class="k">ORM</span><span class="v">Prisma 5.22</span></div>
+    <div class="kv"><span class="k">数据库</span><span class="v">Neon Postgres (新加坡)</span></div>
+    <div class="kv"><span class="k">定时任务</span><span class="v">Vercel Cron / GH Actions</span></div>
+    <div class="kv"><span class="k">语言</span><span class="v">TypeScript 5</span></div>
+  </div>
+  <div class="card">
+    <h3>外部数据源</h3>
+    <div class="kv"><span class="k">Codeforces</span><span class="v">官方 API (REST)</span></div>
+    <div class="kv"><span class="k">AtCoder</span><span class="v">History JSON</span></div>
+    <div class="kv"><span class="k">牛客</span><span class="v">Playwright 预爬取</span></div>
+  </div>
+</div>
+
+<!-- ============ 架构图 ============ -->
+<h2 id="arch">&#127912; 架构总览图</h2>
+<div class="arch-box">
+  <div style="font-size:0.7rem; color:var(--muted); margin-bottom:1rem;">CLIENT LAYER</div>
+  <div class="arch-row">
+    <div class="arch-node client">
+      <span class="label">Browser</span>
+      &#127760; 用户浏览器
+    </div>
+  </div>
+  <div class="arch-arrow">&#11015;</div>
+  <div style="font-size:0.7rem; color:var(--muted); margin:0.5rem 0;">NEXT.JS 16 (App Router)</div>
+  <div class="arch-row">
+    <div class="arch-node server">
+      <span class="label">RSC</span>
+      <code>/</code> 首页
+    </div>
+    <div class="arch-node server">
+      <span class="label">RSC</span>
+      <code>/u/[slug]</code>
+    </div>
+    <div class="arch-node server">
+      <span class="label">RSC</span>
+      <code>/new</code>
+    </div>
+  </div>
+  <div class="arch-arrow">&#11015;</div>
+  <div class="arch-row">
+    <div class="arch-node client">
+      <span class="label">CSR</span>
+      HomePageClient
+    </div>
+  </div>
+  <div class="arch-arrow">&#11015; fetch</div>
+  <div style="font-size:0.7rem; color:var(--muted); margin:0.5rem 0;">API LAYER</div>
+  <div class="arch-row">
+    <div class="arch-node server"><code>/api/user</code></div>
+    <div class="arch-node server"><code>/api/submissions</code></div>
+    <div class="arch-node server"><code>/api/profile</code></div>
+    <div class="arch-node server"><code>/api/users</code></div>
+    <div class="arch-node server"><code>/api/contests</code></div>
+    <div class="arch-node server"><code>/api/cron/refresh</code></div>
+  </div>
+  <div class="arch-arrow">&#11015;</div>
+  <div style="font-size:0.7rem; color:var(--muted); margin:0.5rem 0;">LIB LAYER</div>
+  <div class="arch-row">
+    <div class="arch-node" style="border-color:#a78bfa;"><code>lib/cf-api.ts</code></div>
+    <div class="arch-node" style="border-color:#a78bfa;"><code>lib/atc-api.ts</code></div>
+    <div class="arch-node" style="border-color:#a78bfa;"><code>lib/nc-api.ts</code></div>
+    <div class="arch-node" style="border-color:#a78bfa;"><code>lib/refresh-user.ts</code></div>
+    <div class="arch-node" style="border-color:#a78bfa;"><code>lib/profile.ts</code></div>
+    <div class="arch-node" style="border-color:#a78bfa;"><code>lib/prisma.ts</code></div>
+  </div>
+  <div class="arch-arrow">&#11015;</div>
+  <div class="arch-row">
+    <div class="arch-node db">
+      <span class="label">Database</span>
+      &#128451; Neon Postgres
+    </div>
+    <div class="arch-node ext">
+      <span class="label">External</span>
+      CF API
+    </div>
+    <div class="arch-node ext">
+      <span class="label">External</span>
+      AtCoder
+    </div>
+    <div class="arch-node ext">
+      <span class="label">External</span>
+      牛客网
+    </div>
+  </div>
+</div>
+
+<!-- ============ 路由 ============ -->
+<h2 id="routing">&#128506; 路由</h2>
+<div class="card">
+<table>
+  <tr><th>路径</th><th>类型</th><th>说明</th></tr>
+  <tr><td>/</td><td><span class="tag">RSC</span></td><td>首页 — 用户列表卡片网格，显示三平台 rating pill</td></tr>
+  <tr><td>/u/[slug]</td><td><span class="tag">RSC</span></td><td>个人主页 — SSR 读 profile → 传给 HomePageClient (CSR)</td></tr>
+  <tr><td>/new</td><td><span class="tag">RSC</span></td><td>创建用户表单 — 输入 slug / name，POST /api/profile</td></tr>
+  <tr><td>/api/users</td><td><span class="tag green">GET</span></td><td>用户列表 JSON</td></tr>
+  <tr><td>/api/profile</td><td><span class="tag green">GET</span> / <span class="tag amber">POST</span></td><td>资料读写 (按 slug 寻址)</td></tr>
+  <tr><td>/api/user</td><td><span class="tag green">GET</span></td><td>三平台 rating + contest history (即时返回 + 后台 refresh)</td></tr>
+  <tr><td>/api/submissions</td><td><span class="tag green">GET</span></td><td>三平台提交记录</td></tr>
+  <tr><td>/api/contests</td><td><span class="tag green">GET</span></td><td>未来比赛日历 (站点共享)</td></tr>
+  <tr><td>/api/upload-avatar</td><td><span class="tag amber">POST</span></td><td>头像上传 (multer → public/uploads/)</td></tr>
+  <tr><td>/api/wallpaper-info</td><td><span class="tag green">GET</span></td><td>壁纸信息</td></tr>
+  <tr><td>/api/cron/refresh</td><td><span class="tag green">GET</span></td><td>定时任务 — Bearer CRON_SECRET 鉴权</td></tr>
+</table>
+</div>
+
+<!-- ============ 数据库 ============ -->
+<h2 id="schema">&#128451; 数据库 Schema</h2>
+<div class="card">
+<pre>
+<span class="hl">model User</span> {
+  id        String   @id @default(cuid())
+  <span class="hl2">slug      String   @unique</span>          <span class="comment">// URL 标识,如 "tourist"</span>
+
+  <span class="comment">// 个人资料 (原 Profile 单例已并入)</span>
+  avatar    String   @default("/uploads/avatars/default.svg")
+  name      String   @default("anonymous")
+  bio       String   @default("")
+  signature String   @default("")
+  location  String   @default("")
+
+  <span class="comment">// 三平台 handle</span>
+  <span class="hl3">cfHandle  String   @default("")</span>
+  <span class="hl3">atcHandle String   @default("")</span>
+  <span class="hl3">ncHandle  String   @default("")</span>
+
+  <span class="comment">// 三平台 rating 快照 (实时 + 历史最高)</span>
+  cfRating, cfRank, cfMaxRating, cfMaxRank
+  atcRating, atcRank, atcMaxRating, atcMaxRank
+  ncRating, ncRank, ncMaxRating, ncMaxRank
+
+  createdAt, updatedAt
+  ratingPoints RatingPoint[]     <span class="comment">// 一对多</span>
+  submissions  Submission[]      <span class="comment">// 一对多</span>
+}
+
+<span class="hl">model RatingPoint</span> {
+  id, userId, <span class="hl2">platform</span>, <span class="hl2">date</span>, rating
+  @@unique([userId, platform, date])  <span class="comment">// 同用户同平台同日期唯一</span>
+}
+
+<span class="hl">model Submission</span> {
+  id, userId, <span class="hl2">platform</span>, problemId, problemName, problemUrl
+  tags[], score, submitTime, language, verdict
+  @@unique([userId, platform, problemId, submitTime])
+}
+
+<span class="hl">model Contest</span> {
+  id, platform, name, date, time, duration, url
+  @@unique([platform, name, date])
+}
+</pre>
+</div>
+
+<!-- ============ API ============ -->
+<h2 id="api">&#128268; API 设计</h2>
+<div class="grid-2">
+  <div class="card">
+    <h3>读取类</h3>
+    <table>
+      <tr><th>端点</th><th>逻辑</th></tr>
+      <tr><td>/api/users</td><td>Prisma findMany → 列表</td></tr>
+      <tr><td>/api/profile</td><td>getUserBySlug → 资料</td></tr>
+      <tr><td>/api/user</td><td>查 freshness → 即时返回旧值 + 后台 refresh</td></tr>
+      <tr><td>/api/submissions</td><td>同上，everPopulated 检测首次同步拉取</td></tr>
+      <tr><td>/api/contests</td><td>Prisma findMany → 赛程</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>写入类</h3>
+    <table>
+      <tr><th>端点</th><th>逻辑</th></tr>
+      <tr><td>/api/profile (POST)</td><td>upsert User → 写资料/handle</td></tr>
+      <tr><td>/api/upload-avatar</td><td>multer 解析 → 存 public/uploads/</td></tr>
+      <tr><td>/api/cron/refresh</td><td>遍历所有 User → refreshUserRating + refreshUserSubmissions</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Cron 刷新流程</h3>
+  <pre>
+外部 cron (Vercel / GH Actions)
+  &#11015;  GET /api/cron/refresh  (Bearer CRON_SECRET)
+  &#11015;  遍历所有 User (并发度 3, 避免 CF 限流)
+  &#11015;  refreshUserRating()   → CF / AtC / NC API → Prisma upsert
+  &#11015;  refreshUserSubmissions() → CF / AtC / NC API → Prisma createMany(skipDuplicates)
+  &#11015;  返回 { updated, partial, failed, errors }
+</pre>
+</div>
+
+<!-- ============ 组件 ============ -->
+<h2 id="components">&#127912; 前端组件</h2>
+<div class="grid-2">
+  <div class="card">
+    <h3>&#127968; 页面级</h3>
+    <table>
+      <tr><th>组件</th><th>职责</th></tr>
+      <tr><td>page.tsx (/)</td><td>RSC: listUsers → 用户卡片网格</td></tr>
+      <tr><td>/u/[slug]/page.tsx</td><td>RSC: getUserBySlug → 传 profile 给客户端</td></tr>
+      <tr><td>/new/page.tsx</td><td>RSC: 创建用户表单</td></tr>
+      <tr><td>HomePageClient</td><td>CSR 编排: 管理全部状态, localStorage 缓存, 三段式导航</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>&#128196; 功能组件</h3>
+    <table>
+      <tr><th>组件</th><th>职责</th></tr>
+      <tr><td>RatingCard</td><td>三平台 rating 数字 + recharts 曲线 + 热力图</td></tr>
+      <tr><td>Heatmap</td><td>GitHub 风格提交热力图 (365 天)</td></tr>
+      <tr><td>SubmissionLog</td><td>提交日志列表 (按日期分组, 同题去重)</td></tr>
+      <tr><td>ContestCalendar</td><td>未来比赛日历 (三平台)</td></tr>
+      <tr><td>InsightCards</td><td>统计洞察: streak / 标签圆环 / 难度分布</td></tr>
+      <tr><td>ColorfulSignature</td><td>彩色渐变签名动画</td></tr>
+    </table>
+  </div>
+</div>
+<div class="card">
+  <h3>&#127919; UI 组件</h3>
+  <table>
+    <tr><th>组件</th><th>职责</th></tr>
+    <tr><td>SettingsModal</td><td>编辑资料弹窗 (slug 只读)</td></tr>
+    <tr><td>ThemeToggle</td><td>三态主题切换: 浅色 / 深色 / 跟随系统</td></tr>
+    <tr><td>BackgroundProvider</td><td>动态壁纸背景管理</td></tr>
+    <tr><td>BackgroundSettings</td><td>壁纸设置面板</td></tr>
+  </table>
+</div>
+
+<!-- ============ lib 层 ============ -->
+<h2 id="libs">&#128218; lib 层</h2>
+<div class="grid-2">
+  <div class="card">
+    <h3>数据适配</h3>
+    <table>
+      <tr><th>文件</th><th>职责</th></tr>
+      <tr><td>cf-api.ts</td><td>CF REST API: rating / rating history / submissions / contest history</td></tr>
+      <tr><td>atc-api.ts</td><td>AtCoder: rating (history JSON) / submissions</td></tr>
+      <tr><td>nc-api.ts</td><td>牛客: rating + submissions (仅预抓取 JSON)</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>业务逻辑</h3>
+    <table>
+      <tr><th>文件</th><th>职责</th></tr>
+      <tr><td>refresh-user.ts</td><td>共享刷新逻辑: refreshUserRating + refreshUserSubmissions</td></tr>
+      <tr><td>profile.ts</td><td>getUserBySlug / listUsers / isValidSlug / normalizeSlug</td></tr>
+      <tr><td>prisma.ts</td><td>Prisma Client 单例</td></tr>
+      <tr><td>types.ts</td><td>跨模块共享类型: RatingData / ProblemEntry / SubmissionDay / ContestEntry / PlatformBuckets</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ============ 文件结构 ============ -->
+<h2 id="files">&#128193; 文件结构</h2>
+<div class="card">
+<div class="file-tree">
+  <span class="dir">cp-blog/</span><br>
+  ├── <span class="dir">prisma/</span><br>
+  │   └── <span class="file">schema.prisma</span> <span class="desc">← 4 个 model: User / RatingPoint / Submission / Contest</span><br>
+  ├── <span class="dir">public/data/</span><br>
+  │   └── <span class="file">*.json</span> <span class="desc">← 静态 fallback 数据</span><br>
+  ├── <span class="dir">public/uploads/</span><br>
+  │   └── <span class="dir">avatars/</span> <span class="desc">← 用户头像 (本机存储)</span><br>
+  ├── <span class="dir">scripts/</span><br>
+  │   ├── <span class="file">seed-user.ts</span> <span class="desc">← 手动灌数据 (npx tsx scripts/seed-user.ts &lt;slug&gt;)</span><br>
+  │   ├── <span class="file">list-users.ts</span> <span class="desc">← 列出所有用户</span><br>
+  │   └── <span class="file">nc-fetcher.js</span> <span class="desc">← 牛客 Playwright 爬取</span><br>
+  ├── <span class="dir">src/app/</span><br>
+  │   ├── <span class="file">layout.tsx</span> <span class="desc">← 根布局: 字体 + no-flash 主题脚本 + BackgroundProvider</span><br>
+  │   ├── <span class="file">page.tsx</span> <span class="desc">← 首页 RSC: 用户列表</span><br>
+  │   ├── <span class="file">globals.css</span> <span class="desc">← CSS 变量 (亮/暗) + glass-card + themed-bar</span><br>
+  │   ├── <span class="file">new/page.tsx</span> <span class="desc">← 创建用户</span><br>
+  │   ├── <span class="dir">u/[slug]/page.tsx</span> <span class="desc">← 用户主页 RSC</span><br>
+  │   └── <span class="dir">api/</span><br>
+  │       ├── <span class="file">users/route.ts</span><br>
+  │       ├── <span class="file">profile/route.ts</span><br>
+  │       ├── <span class="file">user/route.ts</span><br>
+  │       ├── <span class="file">submissions/route.ts</span><br>
+  │       ├── <span class="file">contests/route.ts</span><br>
+  │       ├── <span class="file">upload-avatar/route.ts</span><br>
+  │       ├── <span class="file">wallpaper-info/route.ts</span><br>
+  │       └── <span class="dir">cron/refresh/route.ts</span> <span class="desc">← 定时刷新入口</span><br>
+  ├── <span class="dir">src/components/</span><br>
+  │   ├── <span class="file">HomePageClient.tsx</span> <span class="desc">← 主编排 (CSR)</span><br>
+  │   ├── <span class="file">RatingCard.tsx</span> <span class="desc">← rating + recharts + 热力图</span><br>
+  │   ├── <span class="file">Heatmap.tsx</span> <span class="desc">← GitHub 风格热力图</span><br>
+  │   ├── <span class="file">SubmissionLog.tsx</span> <span class="desc">← 提交日志</span><br>
+  │   ├── <span class="file">ContestCalendar.tsx</span> <span class="desc">← 比赛日历</span><br>
+  │   ├── <span class="file">InsightCards.tsx</span> <span class="desc">← 统计洞察</span><br>
+  │   ├── <span class="file">ColorfulSignature.tsx</span> <span class="desc">← 彩色签名</span><br>
+  │   ├── <span class="file">SettingsModal.tsx</span> <span class="desc">← 设置弹窗</span><br>
+  │   ├── <span class="file">ThemeToggle.tsx</span> <span class="desc">← 三态主题</span><br>
+  │   ├── <span class="file">BackgroundProvider.tsx</span> <span class="desc">← 壁纸</span><br>
+  │   └── <span class="file">BackgroundSettings.tsx</span><br>
+  ├── <span class="dir">src/lib/</span><br>
+  │   ├── <span class="file">prisma.ts</span> <span class="desc">← Prisma 单例</span><br>
+  │   ├── <span class="file">profile.ts</span> <span class="desc">← 用户 CRUD 工具</span><br>
+  │   ├── <span class="file">refresh-user.ts</span> <span class="desc">← 共享刷新逻辑</span><br>
+  │   ├── <span class="file">cf-api.ts</span> / <span class="file">atc-api.ts</span> / <span class="file">nc-api.ts</span><br>
+  │   └── <span class="file">types.ts</span> <span class="desc">← 共享类型</span><br>
+  ├── <span class="dir">docs/</span><br>
+  │   ├── <span class="file">PROGRESS.md</span><br>
+  │   └── <span class="file">architecture.html</span> <span class="desc">← 本文件</span><br>
+  ├── <span class="file">package.json</span><br>
+  ├── <span class="file">tsconfig.json</span><br>
+  ├── <span class="file">AGENTS.md</span><br>
+  └── <span class="file">CLAUDE.md</span>
+</div>
+</div>
+
+<!-- ============ 数据流 ============ -->
+<h2 id="dataflow">&#128260; 核心数据流</h2>
+<div class="card">
+  <h3>首次访问新用户</h3>
+  <pre>
+浏览器 → GET /u/tourist
+  &#11015;  RSC: getUserBySlug("tourist") → Prisma → Neon
+  &#11015;  &lt;HomePageClient profile={...} /&gt;
+  &#11015;  CSR: useEffect → refreshAll()
+  &#11015;  并行 fetch:
+  │   ├ /api/user?slug=tourist      → everPopulated=false → <span class="hl2">同步拉取</span> CF/AtC/NC → 返回真数据
+  │   ├ /api/submissions?slug=tourist → 同上, 首次同步
+  │   └ /api/contests                → 缓存命中直接返回
+  &#11015;  setState → 渲染 rating + 热力图 + 日志
+  </pre>
+</div>
+<div class="card">
+  <h3>日常访问 (数据新鲜)</h3>
+  <pre>
+浏览器 → GET /u/tourist
+  &#11015;  CSR: localStorage 缓存 → <span class="hl">秒渲染</span>
+  &#11015;  fetch /api/user → (now - updatedAt) &lt; 4h → <span class="hl2">即时返回旧值</span>
+  &#11015;  后台 refresh 异步更新 → 下次访问拿新数据
+  </pre>
+</div>
+<div class="card">
+  <h3>Cron 定时刷新 (每 4 小时)</h3>
+  <pre>
+Vercel Cron / GH Actions
+  &#11015;  GET /api/cron/refresh (Bearer CRON_SECRET)
+  &#11015;  prisma.user.findMany()
+  &#11015;  并发度 3, 逐个 user:
+  │   ├ refreshUserRating()      → CF/AtC/NC API → User + RatingPoint
+  │   └ refreshUserSubmissions() → CF/AtC/NC API → Submission
+  &#11015;  allSettled 降级: 单平台失败不影响其他
+  &#11015;  返回 { updated, partial, failed, errors }
+  </pre>
+</div>
+
+<!-- ============ localStorage ============ -->
+<div class="card">
+  <h3>localStorage 缓存策略</h3>
+  <pre>
+Key 格式:  <span class="hl">cp-blog:&lt;slug&gt;:&lt;suffix&gt;</span>
+  cp-blog:tourist:rating     → { cf: RatingData, atc: RatingData, nc: RatingData }
+  cp-blog:tourist:subs       → { cf: SubmissionDay[], atc: ..., nc: ... }
+  cp-blog:tourist:section    → "home" | "submissions" | "contests"
+
+版本管理:  cp-blog-cache-version = "v5"
+  版本不匹配 → 清掉所有旧缓存 → 重新拉取
+</pre>
+</div>
+
+<!-- ============ 进度 ============ -->
+<h2 id="progress">&#128200; 开发进度</h2>
+<div class="phase done">
+  <div class="phase-title">A 阶段 — UI 浅色化 + 数据清理 <span class="badge done">DONE</span></div>
+  <p>全站浅色主题 · InsightCards 三洞察卡 · 雪花禁用 · 同题去重 · verdict 多色 · 热力图 tooltip</p>
+</div>
+<div class="phase done">
+  <div class="phase-title">B 阶段 — DB + 性能 <span class="badge done">DONE</span></div>
+  <p>Neon Postgres · 首页 RSC · 连接池优化 · /api/user 即时返回 + 后台 refresh · 冷启动 ~16ms</p>
+</div>
+<div class="phase done">
+  <div class="phase-title">C 阶段 — v2 多用户改造 <span class="badge done">DONE</span></div>
+  <p>Schema 并入 User · slug 化路由 · API 按 slug 寻址 · lib/profile.ts 重写 · localStorage 多用户分桶 · Cron 补齐三平台</p>
+</div>
+<div class="phase done">
+  <div class="phase-title">D 阶段 — 主题 + 关键 bugfix <span class="badge done">DONE</span></div>
+  <p>三态主题切换 · no-flash script · CSS 变量全面深色化 · 新用户 everPopulated 修复 · 首次同步拉取 · seed/list 脚本</p>
+</div>
+<div class="divider"></div>
+<div class="phase pending">
+  <div class="phase-title">D+1 阶段 — 候选事项 <span class="badge todo">TODO</span></div>
+  <p>
+    <span class="tag amber">部署</span> Vercel + Vercel Cron + 头像迁 R2<br>
+    <span class="tag amber">editPassword</span> User 加可选密码字段,防 slug 被随便改<br>
+    <span class="tag">SubmissionLog 筛选</span> 按 tag / score 过滤<br>
+    <span class="tag">比赛订阅</span> iCal 输出<br>
+    <span class="tag">Prisma 升级</span> 5.22 → 7.x
+  </p>
+</div>
+
+<!-- ============ 约束 ============ -->
+<h2 id="constraints">&#9888;&#65039; 关键约束 & 已知限制</h2>
+<div class="grid-2">
+  <div class="card">
+    <h3>开发约束</h3>
+    <div class="kv"><span class="k">Next.js 16</span><span class="v">改代码前查 <code>node_modules/next/dist/docs/</code></span></div>
+    <div class="kv"><span class="k">v16 变更</span><span class="v">移除 dynamic/revalidate, 改用 <code>connection()</code> / <code>'use cache'</code></span></div>
+    <div class="kv"><span class="k">Neon</span><span class="v">新加坡 ap-southeast-1, 冷启动 3-5s</span></div>
+    <div class="kv"><span class="k">连接池</span><span class="v">connection_limit=5 & pool_timeout=20</span></div>
+  </div>
+  <div class="card">
+    <h3>已知限制</h3>
+    <div class="kv"><span class="k">牛客</span><span class="v">仅支持一个 UID (无公开 API, Playwright 本地爬)</span></div>
+    <div class="kv"><span class="k">无登录</span><span class="v">谁拿到 slug 谁能改 — 内部小社团设计</span></div>
+    <div class="kv"><span class="k">头像</span><span class="v">存本机磁盘, serverless 需切 R2</span></div>
+    <div class="kv"><span class="k">CF API</span><span class="v">国内可能慢, 8s 超时兜底旧值</span></div>
+  </div>
+</div>
+
+<!-- ============ 质量 ============ -->
+<div class="card">
+  <h3>&#9989; 质量门</h3>
+  <pre>
+npx tsc --noEmit   →  0 errors
+npx eslint src     →  0 errors, 2 warnings (原项目就有的 SNOWFLAKES unused / no-img)
+  </pre>
+</div>
+
+<div style="text-align:center; color:var(--muted); font-size:0.75rem; margin-top:3rem; padding-bottom:1rem;">
+  CP Blog Architecture &middot; Generated 2026-06-06 &middot; Next.js 16 + React 19 + Prisma + Neon Postgres
+</div>
+
+</body>
+</html>
