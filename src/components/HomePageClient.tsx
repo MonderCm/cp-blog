@@ -1,348 +1,427 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Navbar from "@/components/Navbar";
-import RatingCard from "@/components/RatingCard";
+import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ContestCalendar from "@/components/ContestCalendar";
+import ColorfulSignature from "@/components/ColorfulSignature";
 import SubmissionLog from "@/components/SubmissionLog";
-import Heatmap from "@/components/Heatmap";
 import SettingsModal from "@/components/SettingsModal";
+import InsightCards from "@/components/InsightCards";
+import ThemeToggle from "@/components/ThemeToggle";
+import type { HeatmapProblem } from "@/components/Heatmap";
+import type { RatingData, SubmissionDay, PlatformBuckets } from "@/lib/types";
+import type { CFContestHistoryEntry } from "@/lib/cf-api";
+import type { AtCContestHistoryEntry } from "@/lib/atc-api";
+import type { NCContestHistoryEntry } from "@/lib/nc-api";
+import type { UserProfile } from "@/lib/profile";
+
+export type { RatingData, ProblemEntry, SubmissionDay } from "@/lib/types";
+
+// recharts 体积较大 + 依赖 ResizeObserver,延迟到客户端
+const RatingCard = dynamic(() => import("@/components/RatingCard"), {
+  ssr: false,
+  loading: () => (
+    <div className="glass-card p-5 animate-pulse">
+      <div className="h-4 w-20 bg-black/[0.04] rounded mb-3" />
+      <div className="h-9 w-32 bg-black/[0.04] rounded mb-1" />
+      <div className="h-3 w-24 bg-black/[0.04] rounded mb-4" />
+      <div className="h-24 bg-black/[0.02] rounded" />
+    </div>
+  ),
+});
 
 /* ========== 类型 ========== */
-
-export interface RatingData {
-  handle: string;
-  rating: number;
-  rank: string;
-  maxRating: number;
-  maxRank: string;
-  history: { date: string; rating: number }[];
-}
-
-export interface ProblemEntry {
-  id: string;
-  name: string;
-  url: string;
-  tags: string[];
-  score: number;
-  time: string;
-  language: string;
-  verdict: string;
-}
-
-export interface SubmissionDay {
-  date: string;
-  problems: ProblemEntry[];
-}
 
 export interface Contest {
   name: string;
   date: string;
   time: string;
   duration: string;
-  platform: "Codeforces" | "AtCoder";
+  platform: "Codeforces" | "AtCoder" | "牛客网";
   url: string;
 }
 
-interface ProfileData {
-  avatar: string;
-  name: string;
-  bio: string;
-  signature: string;
-  location: string;
-  cfUsername: string;
-  atcUsername: string;
-}
-
 interface Props {
-  profile: ProfileData;
-  cfRating: RatingData;
-  atcRating: RatingData;
-  cfSubmissions: SubmissionDay[];
-  atcSubmissions: SubmissionDay[];
-  cfContests: Contest[];
-  atcContests: Contest[];
-  heatmapData: Record<string, string[]>;
+  profile: UserProfile;
 }
 
-/* ========== localStorage 持久化 ========== */
+/* ========== localStorage 持久化(按 slug 分键,多用户互不污染) ========== */
 
-const STORAGE_KEY = "cp-blog-profile";
+const STORAGE_VERSION_KEY = "cp-blog-cache-version";
+const CACHE_VERSION = "v5"; // v5:加入多用户隔离
 
-function loadProfile(fallback: ProfileData): ProfileData {
-  if (typeof window === "undefined") return fallback;
+const k = (slug: string, suffix: string) => `cp-blog:${slug}:${suffix}`;
+
+type Section = "home" | "submissions" | "contests";
+
+function safeGet<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const saved = JSON.parse(raw);
-      return { ...fallback, ...saved };
-    }
-  } catch { /* ignore parse errors */ }
-  return fallback;
-}
-
-function saveProfile(data: ProfileData) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch { /* ignore quota errors */ }
-}
-
-/* ========== API 工具 ========== */
-
-async function fetchCFRating(username: string): Promise<RatingData> {
-  const resp = await fetch(
-    `https://codeforces.com/api/user.info?handles=${encodeURIComponent(username)}`,
-  );
-  const data = await resp.json();
-  if (data.status !== "OK" || !data.result?.length) {
-    throw new Error("CF 用户不存在");
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch {
+    return null;
   }
-  const u = data.result[0];
-
-  // Rating history
-  let history: { date: string; rating: number }[] = [];
-  try {
-    const histResp = await fetch(
-      `https://codeforces.com/api/user.rating?handle=${encodeURIComponent(username)}`,
-    );
-    const histData = await histResp.json();
-    if (histData.status === "OK") {
-      const monthly: Record<string, number> = {};
-      for (const item of histData.result) {
-        const d = new Date(item.ratingUpdateTimeSeconds * 1000)
-          .toISOString()
-          .slice(0, 7);
-        if (!monthly[d] || item.newRating > monthly[d]) monthly[d] = item.newRating;
-      }
-      history = Object.entries(monthly)
-        .map(([date, rating]) => ({ date, rating }))
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(-6);
-    }
-  } catch { /* ignore history errors */ }
-
-  return {
-    handle: u.handle,
-    rating: u.rating ?? 0,
-    rank: u.rank ?? "unrated",
-    maxRating: u.maxRating ?? 0,
-    maxRank: u.maxRank ?? "unrated",
-    history,
-  };
 }
 
-async function fetchAtcRating(username: string): Promise<RatingData> {
-  const resp = await fetch(`/api/atcoder?username=${encodeURIComponent(username)}&type=rating`);
-  if (!resp.ok) throw new Error("AtC 获取失败");
+function safeSet(key: string, value: unknown) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
+}
+
+function safeGetString(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function safeSetString(key: string, value: string) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(key, value); } catch { /* ignore */ }
+}
+
+/** 客户端挂载后调用:版本不匹配清掉所有旧缓存 */
+function ensureCacheVersion(): boolean {
+  if (typeof window === "undefined") return false;
+  const saved = safeGetString(STORAGE_VERSION_KEY);
+  if (saved !== CACHE_VERSION) {
+    try {
+      // v4 及更早是全局键,v5 后按 slug 分键
+      const stale = ["cp-blog-rating", "cp-blog-submissions", "cp-blog-submissions-v2", "cp-blog-profile", "cp-blog-active-section"];
+      for (const key of stale) localStorage.removeItem(key);
+    } catch { /* ignore */ }
+    safeSetString(STORAGE_VERSION_KEY, CACHE_VERSION);
+    return true;
+  }
+  return false;
+}
+
+function defaultRating(handle: string): RatingData {
+  return { handle, rating: 0, rank: "unrated", maxRating: 0, maxRank: "unrated", history: [] };
+}
+
+function emptyBuckets(): PlatformBuckets<SubmissionDay[]> {
+  return { cf: [], atc: [], nc: [] };
+}
+
+function buildHeatmap(buckets: PlatformBuckets<SubmissionDay[]>): Record<string, HeatmapProblem[]> {
+  const byDate = new Map<string, Map<string, HeatmapProblem>>();
+  for (const day of [...buckets.cf, ...buckets.atc, ...buckets.nc]) {
+    if (!day.problems.length) continue;
+    let bucket = byDate.get(day.date);
+    if (!bucket) { bucket = new Map(); byDate.set(day.date, bucket); }
+    for (const p of day.problems) {
+      if (p.verdict !== "AC" && p.verdict !== "OK") continue;
+      if (!bucket.has(p.id)) bucket.set(p.id, { id: p.id, name: p.name, url: p.url, score: p.score });
+    }
+  }
+  const result: Record<string, HeatmapProblem[]> = {};
+  for (const [date, m] of byDate) result[date] = Array.from(m.values());
+  return result;
+}
+
+/* ========== API ========== */
+
+async function fetchUserData(slug: string, force = false) {
+  const url = `/api/user?slug=${encodeURIComponent(slug)}${force ? "&refresh=1" : ""}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error("获取用户数据失败");
+  return resp.json() as Promise<{ cf: RatingData; atc: RatingData; nc: RatingData; cfContestHistory: CFContestHistoryEntry[]; atcContestHistory: AtCContestHistoryEntry[]; ncContestHistory: NCContestHistoryEntry[]; cached: boolean }>;
+}
+
+async function fetchSubmissions(slug: string, force = false): Promise<PlatformBuckets<SubmissionDay[]> & { cached?: boolean }> {
+  const url = `/api/submissions?slug=${encodeURIComponent(slug)}${force ? "&refresh=1" : ""}`;
+  const resp = await fetch(url);
+  if (!resp.ok) return emptyBuckets();
+  return resp.json();
+}
+
+async function fetchContests(): Promise<PlatformBuckets<Contest[]>> {
+  const resp = await fetch("/api/contests");
+  if (!resp.ok) return { cf: [], atc: [], nc: [] };
   return resp.json();
 }
 
 /* ========== 组件 ========== */
 
-export default function HomePageClient({
-  profile: initialProfile,
-  cfRating: initialCFRating,
-  atcRating: initialAtcRating,
-  cfSubmissions,
-  atcSubmissions,
-  cfContests: initialCFContests,
-  atcContests: initialAtcContests,
-  heatmapData,
-}: Props) {
-  const [profile, setProfile] = useState(() => loadProfile(initialProfile));
+export default function HomePageClient({ profile: initialProfile }: Props) {
+  const router = useRouter();
+  const slug = initialProfile.slug;
+
+  const [profile, setProfile] = useState<UserProfile>(initialProfile);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // 可动态刷新的数据
-  const [cfRating, setCFRating] = useState(initialCFRating);
-  const [atcRating, setAtcRating] = useState(initialAtcRating);
-  const [cfContests, setCFContests] = useState(initialCFContests);
-  const [atcContests, setAtcContests] = useState(initialAtcContests);
-  const [fetching, setFetching] = useState(false);
+  const [cfRating, setCFRating] = useState<RatingData>(defaultRating(initialProfile.cfHandle));
+  const [atcRating, setAtcRating] = useState<RatingData>(defaultRating(initialProfile.atcHandle));
+  const [ncRating, setNCRating] = useState<RatingData>(defaultRating(initialProfile.ncHandle));
+
+  const [subs, setSubs] = useState<PlatformBuckets<SubmissionDay[]>>(emptyBuckets());
+  const [contests, setContests] = useState<PlatformBuckets<Contest[]>>({ cf: [], atc: [], nc: [] });
+  const [heatmapData, setHeatmapData] = useState<Record<string, HeatmapProblem[]>>({});
+  const [cfContestHistory, setCFContestHistory] = useState<CFContestHistoryEntry[]>([]);
+  const [atcContestHistory, setAtCContestHistory] = useState<AtCContestHistoryEntry[]>([]);
+  const [ncContestHistory, setNCContestHistory] = useState<NCContestHistoryEntry[]>([]);
+  const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState("");
-  const [hydrated, setHydrated] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<Section>("home");
 
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
+  const mountedRef = useRef(false);
 
-  const handleSave = useCallback(
-    async (data: ProfileData) => {
-      const merged = { ...profile, ...data };
-      setProfile(merged);
-      saveProfile(merged);
+  const refreshAll = useCallback(async (opts?: { force?: boolean }) => {
+    const force = opts?.force ?? false;
+    setFetching(true);
+    setFetchError("");
 
-      // handle 变更时重新拉取数据
-      const cfChanged = data.cfUsername && data.cfUsername !== profile.cfUsername;
-      const atcChanged = data.atcUsername && data.atcUsername !== profile.atcUsername;
+    const [userResult, subsResult, contestsResult] = await Promise.allSettled([
+      fetchUserData(slug, force),
+      fetchSubmissions(slug, force),
+      fetchContests(),
+    ]);
 
-      if (cfChanged || atcChanged) {
-        setFetching(true);
-        setFetchError("");
-        try {
-          const tasks: Promise<void>[] = [];
-          if (cfChanged) {
-            tasks.push(
-              fetchCFRating(data.cfUsername).then(setCFRating).catch((e) => {
-                setFetchError((prev) => prev + "CF: " + e.message + " ");
-              }),
-            );
-          }
-          if (atcChanged) {
-            tasks.push(
-              fetchAtcRating(data.atcUsername).then(setAtcRating).catch((e) => {
-                setFetchError((prev) => prev + "AtC: " + e.message + " ");
-              }),
-            );
-          }
-          await Promise.allSettled(tasks);
+    if (userResult.status === "fulfilled") {
+      const v = userResult.value;
+      setCFRating(v.cf); setAtcRating(v.atc); setNCRating(v.nc);
+      if (v.cfContestHistory) setCFContestHistory(v.cfContestHistory);
+      if (v.atcContestHistory) setAtCContestHistory(v.atcContestHistory);
+      if (v.ncContestHistory) setNCContestHistory(v.ncContestHistory);
+      safeSet(k(slug, "rating"), { cf: v.cf, atc: v.atc, nc: v.nc });
+    }
 
-          // 刷新比赛日历
-          try {
-            const cfResp = await fetch("https://codeforces.com/api/contest.list");
-            const cfData = await cfResp.json();
-            if (cfData.status === "OK") {
-              const upcoming = cfData.result
-                .filter((c: { phase: string }) => c.phase === "BEFORE")
-                .slice(0, 5)
-                .map((c: { name: string; startTimeSeconds: number; durationSeconds: number; id: number }) => ({
-                  name: c.name,
-                  date: new Date(c.startTimeSeconds * 1000).toISOString().slice(0, 10),
-                  time: new Date(c.startTimeSeconds * 1000).toTimeString().slice(0, 5),
-                  duration: `${Math.floor(c.durationSeconds / 3600)}:${String(Math.floor((c.durationSeconds % 3600) / 60)).padStart(2, "0")}`,
-                  platform: "Codeforces" as const,
-                  url: `https://codeforces.com/contests/${c.id}`,
-                }));
-              setCFContests(upcoming);
-            }
-          } catch { /* ignore */ }
-
-          try {
-            const atcResp = await fetch(
-              `/api/atcoder?username=${data.atcUsername || profile.atcUsername}&type=contests`,
-            );
-            if (atcResp.ok) {
-              const atcData = await atcResp.json();
-              setAtcContests(atcData);
-            }
-          } catch { /* ignore */ }
-        } finally {
-          setFetching(false);
-        }
+    if (subsResult.status === "fulfilled") {
+      const data = subsResult.value;
+      const buckets: PlatformBuckets<SubmissionDay[]> = { cf: data.cf, atc: data.atc, nc: data.nc };
+      const hasAny = buckets.cf.length || buckets.atc.length || buckets.nc.length;
+      if (hasAny) {
+        setSubs(buckets);
+        safeSet(k(slug, "subs"), buckets);
+        setHeatmapData(buildHeatmap(buckets));
+      } else {
+        setFetchError("暂无提交记录,设置三平台账号或等待 cron 抓取");
       }
-    },
-    [profile],
-  );
+    }
+
+    if (contestsResult.status === "fulfilled") {
+      setContests(contestsResult.value);
+    }
+
+    const errors = [
+      userResult.status === "rejected" && `用户数据(${userResult.reason})`,
+      subsResult.status === "rejected" && `提交记录(${subsResult.reason})`,
+      contestsResult.status === "rejected" && `比赛(${contestsResult.reason})`,
+    ].filter(Boolean);
+    const statuses = [
+      userResult.status === "fulfilled" && "用户数据",
+      subsResult.status === "fulfilled" && "提交记录",
+      contestsResult.status === "fulfilled" && "比赛",
+    ].filter(Boolean);
+    if (errors.length > 0) {
+      setFetchError(`${statuses.join("、")}已加载；${errors.join("；")} 失败`);
+    }
+
+    setFetching(false);
+  }, [slug]);
+
+  // 挂载:版本检查 → 读 localStorage → 拉远程
+  // 这里 setState-in-effect 是有意的一次性 hydration,
+  // 等同于 useSyncExternalStore 的浏览器侧 lazy read,功能正确
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
+
+    const cleared = ensureCacheVersion();
+
+    if (!cleared) {
+      const savedRating = safeGet<{ cf?: RatingData; atc?: RatingData; nc?: RatingData }>(k(slug, "rating"));
+      if (savedRating) {
+        if (savedRating.cf) setCFRating(savedRating.cf);
+        if (savedRating.atc) setAtcRating(savedRating.atc);
+        if (savedRating.nc) setNCRating(savedRating.nc);
+      }
+      const savedSubs = safeGet<PlatformBuckets<SubmissionDay[]>>(k(slug, "subs"));
+      if (savedSubs) {
+        setSubs(savedSubs);
+        setHeatmapData(buildHeatmap(savedSubs));
+      }
+    }
+
+    const savedSection = safeGetString(k(slug, "section"));
+    if (savedSection === "home" || savedSection === "submissions" || savedSection === "contests") {
+      setActiveSection(savedSection);
+    }
+
+    refreshAll();
+  }, [slug, refreshAll]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const handleSectionChange = (s: Section) => {
+    setActiveSection(s);
+    safeSetString(k(slug, "section"), s);
+  };
+
+  const handleSave = useCallback(async (data: UserProfile) => {
+    const merged = { ...profile, ...data, slug }; // slug 不可改
+    setProfile(merged);
+
+    const res = await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(merged),
+    });
+
+    if (!res.ok) {
+      setFetchError("保存资料失败,请重试");
+      return;
+    }
+
+    const changed =
+      data.cfHandle !== profile.cfHandle ||
+      data.atcHandle !== profile.atcHandle ||
+      data.ncHandle !== profile.ncHandle;
+
+    if (changed) {
+      // 清掉本地缓存，避免下次加载时先渲染旧handle的数据
+      try {
+        localStorage.removeItem(k(slug, "rating"));
+        localStorage.removeItem(k(slug, "subs"));
+      } catch { /* ignore */ }
+      await refreshAll({ force: true });
+    }
+  }, [profile, slug, refreshAll]);
+
+  const handleDelete = useCallback(() => {
+    router.push("/");
+  }, [router]);
 
   return (
     <>
-      <Navbar signature={profile.signature} />
-
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        {/* ---- GitHub 风格头部 ---- */}
-        <div className="flex flex-col md:flex-row gap-8 mb-10">
-          {/* 左侧：头像 + 信息 */}
-          <div className="flex-shrink-0 flex flex-col items-center md:items-start">
-            <div className="relative mb-3">
-              <div className="w-72 h-72 md:w-64 md:h-64 rounded-full overflow-hidden ring-[3px] ring-white/[0.08] shadow-lg shadow-indigo-500/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={profile.avatar}
-                  alt="头像"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-10 h-10 rounded-full border-[3px] border-background bg-emerald-500/20 flex items-center justify-center">
-                <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-              </div>
-            </div>
-
-            <h1 className="text-2xl font-semibold mb-1">{profile.name}</h1>
-            <p className="text-muted-foreground text-sm mb-4">{profile.bio}</p>
-
-            <p className="text-muted-foreground text-xs flex items-center gap-1.5 mb-4">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0a6 6 0 0 0-6 6c0 4.5 6 10 6 10s6-5.5 6-10a6 6 0 0 0-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" />
-              </svg>
-              {profile.location}
-            </p>
-
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="w-full px-4 py-1.5 text-sm rounded-lg bg-white/[0.06] border border-white/[0.08] hover:bg-white/[0.10] transition-colors"
-            >
-              编辑资料
-            </button>
-          </div>
-
-          {/* 右侧：Rating 卡片 */}
-          <div className="flex-1 flex flex-col gap-4 min-w-0">
-            {fetching && (
-              <div className="text-xs text-muted-foreground flex items-center gap-2 px-1">
-                <span className="inline-block w-3 h-3 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
-                正在获取最新数据...
-              </div>
-            )}
-            {fetchError && (
-              <div className="text-xs text-red-400/80 px-1">{fetchError}</div>
-            )}
-            <RatingCard
-              platform="Codeforces"
-              handle={profile.cfUsername}
-              rating={cfRating.rating}
-              rank={cfRating.rank}
-              maxRating={cfRating.maxRating}
-              maxRank={cfRating.maxRank}
-              history={cfRating.history}
-            />
-            <RatingCard
-              platform="AtCoder"
-              handle={profile.atcUsername}
-              rating={atcRating.rating}
-              rank={atcRating.rank}
-              maxRating={atcRating.maxRating}
-              maxRank={atcRating.maxRank}
-              history={atcRating.history}
-            />
-          </div>
+      {/* 左侧功能区 */}
+      <div className="fixed left-0 top-1/2 -translate-y-1/2 z-40 flex">
+        <div
+          className="w-3 h-40 cursor-pointer group"
+          onMouseEnter={() => setNavOpen(true)}
+          onClick={() => setNavOpen((prev) => !prev)}
+        />
+        <div
+          className={`themed-bar flex flex-col gap-1.5 px-2 py-3 border rounded-r-lg transition-all duration-300 overflow-hidden min-w-[120px] shadow-sm
+            ${navOpen ? "w-auto opacity-100" : "w-0 opacity-0 pointer-events-none"}
+            lg:w-auto lg:opacity-100 lg:pointer-events-auto`}
+          onMouseLeave={() => setNavOpen(false)}
+        >
+          <button
+            onClick={() => handleSectionChange("home")}
+            className={`text-xs py-1 px-2 rounded whitespace-nowrap transition-colors ${
+              activeSection === "home"
+                ? "text-indigo-600 bg-indigo-500/10"
+                : "text-foreground/70 hover:text-foreground hover:bg-black/[0.04]"
+            }`}
+          >🏠 首页</button>
+          <button
+            onClick={() => handleSectionChange("submissions")}
+            className={`text-xs py-1 px-2 rounded whitespace-nowrap transition-colors ${
+              activeSection === "submissions"
+                ? "text-indigo-600 bg-indigo-500/10"
+                : "text-foreground/70 hover:text-foreground hover:bg-black/[0.04]"
+            }`}
+          >📝 刷题日志</button>
+          <div className="w-full h-px bg-black/[0.06] my-0.5" />
+          <button
+            onClick={() => handleSectionChange("contests")}
+            className={`text-xs py-1 px-2 rounded whitespace-nowrap transition-colors ${
+              activeSection === "contests"
+                ? "text-indigo-600 bg-indigo-500/10"
+                : "text-foreground/70 hover:text-foreground hover:bg-black/[0.04]"
+            }`}
+          >🏆 近期比赛</button>
+          <div className="w-full h-px bg-black/[0.06] my-0.5" />
+          <Link
+            href="/"
+            className="text-xs text-foreground/50 hover:text-foreground/70 transition-colors py-1 px-2 rounded hover:bg-black/[0.04] whitespace-nowrap"
+          >👥 用户列表</Link>
         </div>
-
-        {/* ---- 比赛日历 ---- */}
-        <section className="mb-10">
-          <ContestCalendar cfContests={cfContests} atcContests={atcContests} />
-        </section>
-
-        {/* ---- 热力图 ---- */}
-        <section className="mb-10">
-          <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-muted-foreground">
-              <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0V1.5h-8a1 1 0 0 0-1 1v6.708A2.5 2.5 0 0 1 4.5 9h3.25a.75.75 0 0 1 0 1.5H4.5a1 1 0 0 0 0 2h3.25a.75.75 0 0 1 0 1.5H4.5A2.5 2.5 0 0 1 2 11.5v-9zM14.5 9a2.5 2.5 0 0 0-2.5-2.5H7.75a.75.75 0 0 0 0 1.5H12a1 1 0 0 1 0 2H9.75a.75.75 0 0 0 0 1.5H12a1 1 0 0 1 0 2H7.75a.75.75 0 0 0 0 1.5H12a2.5 2.5 0 0 0 2.5-2.5V9z" />
-            </svg>
-            刷题热力图
-          </h2>
-          <div className="glass-card p-4 sm:p-6">
-            <Heatmap submissions={heatmapData} />
-          </div>
-        </section>
-
-        {/* ---- 做题日志 ---- */}
-        <section>
-          <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="text-muted-foreground">
-              <path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75V1.75zm8.755 3a2.25 2.25 0 0 1 2.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574z" />
-            </svg>
-            刷题日志
-          </h2>
-          <SubmissionLog cfSubmissions={cfSubmissions} atcSubmissions={atcSubmissions} />
-        </section>
       </div>
 
-      {/* 设置弹窗 */}
+      {/* 顶部栏 */}
+      <header className="themed-bar fixed top-0 left-0 right-0 z-30 border-b">
+        <div className="flex items-center justify-between px-4 py-2">
+          <Link href="/" className="text-xs text-foreground/60 hover:text-foreground transition-colors">
+            ← 用户列表
+          </Link>
+          <div className="flex-1 flex justify-center px-4">
+            <div className="opacity-80 max-w-[320px]">
+              <ColorfulSignature text={profile.signature || "代码改变世界"} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <ThemeToggle />
+            <div className="flex flex-col items-end leading-tight">
+              <span className="text-[11px] font-medium text-foreground/80">{profile.name}</span>
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="text-[10px] text-foreground/40 hover:text-foreground/70 transition-colors"
+              >编辑资料</button>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-[-1.5px] rounded-full bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 blur-sm opacity-30" />
+              <div className="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-black/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={profile.avatar} alt="头像" className="w-full h-full object-cover" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
+        {fetching && (
+          <div className="text-xs text-muted-foreground flex items-center gap-2 mb-4">
+            <span className="inline-block w-3 h-3 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
+            正在获取最新数据...
+          </div>
+        )}
+        {fetchError && <div className="text-xs text-red-400/80 mb-4">{fetchError}</div>}
+
+        {activeSection === "home" && (
+          <section className="mb-8">
+            <RatingCard cf={cfRating} atc={atcRating} nc={ncRating} cfContestHistory={cfContestHistory} atcContestHistory={atcContestHistory} ncContestHistory={ncContestHistory} heatmapData={heatmapData} loading={fetching} />
+            <InsightCards subs={subs} />
+          </section>
+        )}
+
+        {activeSection === "submissions" && (
+          <section>
+            <h2 className="text-sm font-medium mb-4 flex items-center gap-2 text-white/60">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75V1.75zm8.755 3a2.25 2.25 0 0 1 2.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574z" />
+              </svg>
+              刷题日志
+            </h2>
+            <SubmissionLog cfSubmissions={subs.cf} atcSubmissions={subs.atc} ncSubmissions={subs.nc} />
+          </section>
+        )}
+
+        {activeSection === "contests" && (
+          <section>
+            <h2 className="text-sm font-medium mb-4 flex items-center gap-2 text-white/60">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm-3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm-5 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z" />
+                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
+              </svg>
+              近期比赛
+            </h2>
+            <ContestCalendar cfContests={contests.cf} atcContests={contests.atc} ncContests={contests.nc} />
+          </section>
+        )}
+      </div>
+
       <SettingsModal
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         profile={profile}
         onSave={handleSave}
+        onDelete={handleDelete}
       />
     </>
   );

@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 多用户站点的"用户"——站点访客自己注册一个 slug 即可拥有自己的主页
+// 路由是 /u/[slug];不做登录,谁拿到 slug 谁能编辑(同社团内部使用)
+model User {
+  id        String   @id @default(cuid())
+  slug      String   @unique // URL 标识,小写字母数字短横线,例 "mus" "tourist"
+
+  // 个人资料(原 Profile 单例并入)
+  avatar    String   @default("/uploads/avatars/default.svg")
+  name      String   @default("anonymous")
+  bio       String   @default("")
+  signature String   @default("")
+  location  String   @default("")
+
+  // 三平台账号
+  cfHandle  String   @default("")
+  atcHandle String   @default("")
+  ncHandle  String   @default("")
+
+  // 三平台 rating 快照(实时 + 历史最高)
+  cfRating     Int    @default(0)
+  cfRank       String @default("unrated")
+  cfMaxRating  Int    @default(0)
+  cfMaxRank    String @default("unrated")
+  atcRating    Int    @default(0)
+  atcRank      String @default("unrated")
+  atcMaxRating Int    @default(0)
+  atcMaxRank   String @default("unrated")
+  ncRating     Int    @default(0)
+  ncRank       String @default("unrated")
+  ncMaxRating  Int    @default(0)
+  ncMaxRank    String @default("unrated")
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  ratingPoints RatingPoint[]
+  submissions  Submission[]
+
+  @@index([cfHandle])
+}
+
+model RatingPoint {
+  id       String @id @default(cuid())
+  userId   String
+  platform String
+  date     String
+  rating   Int
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, date])
+  @@index([userId, platform])
+}
+
+model Submission {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    String
+  problemId   String
+  problemName String
+  problemUrl  String
+  tags        String[] @default([])
+  score       Int      @default(0)
+  submitTime  DateTime
+  language    String
+  verdict     String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, problemId, submitTime])
+  @@index([userId, platform, submitTime])
+  @@index([userId, submitTime(sort: Desc)])
+}
+
+model Contest {
+  id        Int      @id @default(autoincrement())
+  platform  String
+  name      String
+  date      String
+  time      String
+  duration  String
+  url       String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([platform, name, date])
+}

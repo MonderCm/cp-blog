@@ -41,3 +41,29 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+/src/generated/prisma
+
+# local debug / scratch files
+err.txt
+prisma-generate-error.txt
+test.txt
+output.json
+temp-*.json
+nc-tmp.json
+nc-submissions.json
+nc-debug.html
+test-*.js
+.next-dev.*.log
+scripts/nc-fetcher_*.js
+
+# user uploads (留 default 头像，忽略其他)
+/public/uploads/avatars/*
+!/public/uploads/avatars/default.svg
+
+# wallpaper 等大文件不进仓库
+/public/uploads/wallpaper/
+
+# 临时产物 / 调试日志
+dev-output.log
+cp-blog-review.html

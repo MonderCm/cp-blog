@@ -2,18 +2,27 @@
 
 import { useState, useEffect } from "react";
 
+function formatContestDate(date: string, time: string): string {
+  const dateObj = new Date(`${date}T${time}`);
+  const months = ["一月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月"];
+  const h = dateObj.getHours().toString().padStart(2, "0");
+  const m = dateObj.getMinutes().toString().padStart(2, "0");
+  return `${months[dateObj.getMonth()]}${dateObj.getDate()}日 ${h}:${m}`;
+}
+
 interface Contest {
   name: string;
   date: string;
   time: string;
   duration: string;
-  platform: "Codeforces" | "AtCoder";
+  platform: "Codeforces" | "AtCoder" | "牛客网";
   url: string;
 }
 
 interface ContestCalendarProps {
   cfContests: Contest[];
   atcContests: Contest[];
+  ncContests: Contest[];
 }
 
 const REG_STORAGE_KEY = "cp-blog-contest-reg";
@@ -73,12 +82,17 @@ function ContestCard({
   registered: boolean;
   onToggle: (cid: string) => void;
 }) {
-  const dateObj = new Date(`${contest.date}T${contest.time}`);
   const platformColor =
-    contest.platform === "Codeforces" ? "#818cf8" : "#34d399";
+    contest.platform === "Codeforces" ? "#818cf8" :
+    contest.platform === "AtCoder" ? "#34d399" : "#f59e0b";
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.04] transition-colors group">
+    <a
+      href={contest.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.02] transition-colors group"
+    >
       <div
         className="w-2 h-2 rounded-full shrink-0"
         style={{ background: platformColor }}
@@ -86,9 +100,7 @@ function ContestCard({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">{contest.name}</div>
         <div className="text-xs text-muted-foreground mt-1">
-          {dateObj.toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}{" "}
-          {dateObj.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}{" "}
-          · {contest.duration}
+          {formatContestDate(contest.date, contest.time)} · {contest.duration}
         </div>
       </div>
       <div className="shrink-0">
@@ -97,25 +109,18 @@ function ContestCard({
       <button
         onClick={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           onToggle(cid);
         }}
         className={`shrink-0 px-3 py-1 text-xs rounded-full transition-colors ${
           registered
             ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-            : "bg-white/[0.04] text-muted-foreground border border-white/[0.06] hover:border-indigo-500/30 hover:text-indigo-300"
+            : "bg-white/[0.02] text-muted-foreground border border-white/[0.06] hover:border-indigo-500/30 hover:text-indigo-300"
         }`}
       >
         {registered ? "已报名" : "未报名"}
       </button>
-      <a
-        href={contest.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity text-sm shrink-0"
-      >
-        &rarr;
-      </a>
-    </div>
+    </a>
   );
 }
 
@@ -160,8 +165,7 @@ function ContestSection({
           {title}
         </h3>
         <span className="text-xs text-muted-foreground">
-          {contests.length} 场
-        </span>
+          {contests.length} 场        </span>
       </div>
       <div className="space-y-1">
         {sorted.map((c) => {
@@ -184,12 +188,9 @@ function ContestSection({
 export default function ContestCalendar({
   cfContests,
   atcContests,
+  ncContests,
 }: ContestCalendarProps) {
-  const [regMap, setRegMap] = useState<RegMap>({});
-
-  useEffect(() => {
-    setRegMap(loadRegistrations());
-  }, []);
+  const [regMap, setRegMap] = useState<RegMap>(() => loadRegistrations());
 
   const handleToggle = (cid: string) => {
     setRegMap((prev) => {
@@ -199,12 +200,11 @@ export default function ContestCalendar({
     });
   };
 
-  const total = cfContests.length + atcContests.length;
+  const total = cfContests.length + atcContests.length + ncContests.length;
   if (total === 0) {
     return (
       <div className="glass-card p-8 text-center text-muted-foreground">
-        暂无即将举办的比赛
-      </div>
+        暂无即将举办的比赛      </div>
     );
   }
 
@@ -228,6 +228,14 @@ export default function ContestCalendar({
           icon="🟢"
           color="#34d399"
           contests={atcContests}
+          regMap={regMap}
+          onToggleReg={handleToggle}
+        />
+        <ContestSection
+          title="牛客网"
+          icon="🟡"
+          color="#f59e0b"
+          contests={ncContests}
           regMap={regMap}
           onToggleReg={handleToggle}
         />

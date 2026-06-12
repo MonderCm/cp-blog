@@ -1,8 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { BackgroundConfig, loadBG, saveBG } from "./DynamicBackground";
+import { useState, useRef } from "react";
+
+const STORAGE_KEY = "cp-blog-bg";
+
+type BackgroundConfig =
+  | { type: "color"; value: string }
+  | { type: "gradient"; value: string }
+  | { type: "video"; value: string }
+  | { type: "wallpaper"; value: string; preview?: string };
+
+function loadBG(): BackgroundConfig {
+  if (typeof window === "undefined") return { type: "gradient", value: "linear-gradient(135deg, #0a0a1a 0%, #0f0f23 40%, #0a0a2e 100%)" };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as BackgroundConfig;
+  } catch { /* ignore */ }
+  return { type: "gradient", value: "linear-gradient(135deg, #0a0a1a 0%, #0f0f23 40%, #0a0a2e 100%)" };
+}
+
+function saveBG(bg: BackgroundConfig) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(bg)); } catch { /* ignore */ }
+}
 
 interface BackgroundSettingsProps {
   onClose: () => void;
@@ -10,45 +30,69 @@ interface BackgroundSettingsProps {
 
 export default function BackgroundSettings({ onClose }: BackgroundSettingsProps) {
   const [bg, setBG] = useState<BackgroundConfig>(loadBG());
-  const [jsonFile, setJsonFile] = useState<File | null>(null);
-  const [jsonError, setJsonError] = useState("");
+  const [wallpaperLoading, setWallpaperLoading] = useState(false);
+  const [wallpaperError, setWallpaperError] = useState("");
+  const [selectedLabel, setSelectedLabel] = useState("");
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const presets = [
-    { name: "深空黑", type: "color" as const, value: "#0a0a0f" },
+    { name: "深空蓝", type: "color" as const, value: "#0a0a0f" },
     { name: "星空渐变", type: "gradient" as const, value: "linear-gradient(135deg, #0a0a1a 0%, #0f0f23 40%, #0a0a2e 100%)" },
     { name: "紫夜", type: "gradient" as const, value: "radial-gradient(ellipse at 30% 20%, rgba(88, 28, 135, 0.3) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(139, 92, 246, 0.2) 0%, transparent 50%), linear-gradient(to bottom, #0a0a0f, #1e1b2e)" },
-    { name: "赛博蓝", type: "gradient" as const, value: "linear-gradient(45deg, rgba(6, 182, 212, 0.1) 0%, rgba(59, 130, 246, 0.1) 25%, rgba(139, 92, 246, 0.1) 50%, rgba(236, 72, 153, 0.1) 75%, rgba(239, 68, 68, 0.1) 100%), #0a0a0f" },
+    { name: "赛博朋克", type: "gradient" as const, value: "linear-gradient(45deg, rgba(6, 182, 212, 0.1) 0%, rgba(59, 130, 246, 0.1) 25%, rgba(139, 92, 246, 0.1) 50%, rgba(236, 72, 153, 0.1) 75%, rgba(239, 68, 68, 0.1) 100%), #0a0a0f" },
   ];
 
   const handleApply = (newBG: BackgroundConfig) => {
     setBG(newBG);
     saveBG(newBG);
-    // 触发全局更新
-    window.dispatchEvent(new StorageEvent("storage", { key: "cp-blog-bg" }));
+    window.dispatchEvent(new CustomEvent("cp-bg-update"));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setJsonFile(file);
-    setJsonError("");
+  const handleFolderSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const json = JSON.parse(e.target?.result as string);
-        // Steam Wallpaper Engine JSON 格式解析
-        if (json.file && json.file.endsWith?.(".mp4") || json.file.endsWith?.(".webm")) {
-          const videoUrl = URL.createObjectURL(file);
-          handleApply({ type: "video", value: videoUrl });
-        } else {
-          setJsonError("JSON 不是有效的 Steam 动态壁纸配置文件");
-        }
-      } catch {
-        setJsonError("无法解析 JSON 文件");
+    setWallpaperLoading(true);
+    setWallpaperError("");
+
+    const firstFile = files[0];
+    const folderName = (firstFile as any).webkitRelativePath?.split("/")[0] || "壁纸文件夹";
+    setSelectedLabel(folderName);
+
+    // 优先找视频文件，其次找图片
+    const videoExts = [".mp4", ".webm", ".mov", ".avi"];
+    const imageExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"];
+
+    let mediaFile: File | null = null;
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+      if (videoExts.includes(ext)) { mediaFile = f; break; }
+    }
+    if (!mediaFile) {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+        if (imageExts.includes(ext)) { mediaFile = f; break; }
       }
-    };
-    reader.readAsText(file);
+    }
+
+    if (!mediaFile) {
+      setWallpaperError("文件夹中未找到视频或图片文件");
+      setWallpaperLoading(false);
+      return;
+    }
+
+    const blobUrl = URL.createObjectURL(mediaFile);
+    const isVideo = videoExts.includes(mediaFile.name.slice(mediaFile.name.lastIndexOf(".")).toLowerCase());
+
+    if (isVideo) {
+      handleApply({ type: "video", value: blobUrl });
+    } else {
+      handleApply({ type: "wallpaper", value: blobUrl, preview: blobUrl });
+    }
+
+    setWallpaperLoading(false);
   };
 
   const handleVideoUrl = () => {
@@ -86,32 +130,48 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
       </div>
 
       <div>
-        <h3 className="text-sm font-medium mb-3">自定义视频背景</h3>
+        <h3 className="text-sm font-medium mb-3">Steam 动态壁纸</h3>
         <div className="space-y-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1.5 block">
-              上传 Steam 动态壁纸 JSON 文件
+              本地壁纸文件
             </label>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleFileChange}
-              className="w-full text-xs bg-white/[0.06] border border-white/[0.08] rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500/50 transition-colors"
-            />
-            {jsonError && <p className="text-xs text-red-400 mt-1">{jsonError}</p>}
+            <div className="flex gap-2">
+              <input
+                ref={folderInputRef}
+                type="file"
+                // @ts-expect-error webkitdirectory 是非标准属性，Chrome/Edge 支持
+                webkitdirectory=""
+                onChange={handleFolderSelect}
+                className="hidden"
+              />
+              <div className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-muted-foreground truncate">
+                {selectedLabel || "未选择文件夹"}
+              </div>
+              <button
+                onClick={() => folderInputRef.current?.click()}
+                disabled={wallpaperLoading}
+                className="px-3 py-2 text-xs rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                {wallpaperLoading ? "加载中..." : "选择文件夹"}
+              </button>
+            </div>
+            {wallpaperError && <p className="text-xs text-red-400 mt-1">{wallpaperError}</p>}
             <p className="text-[10px] text-muted-foreground mt-1">
-              支持 Steam Wallpaper Engine 导出的 .json 配置文件
+              选择 Steam Wallpaper Engine 壁纸文件夹，自动提取视频或图片作为背景
             </p>
           </div>
 
           <div className="text-center text-xs text-muted-foreground">或</div>
 
-          <button
-            onClick={handleVideoUrl}
-            className="w-full px-4 py-2 text-sm rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
-          >
-            输入视频 URL
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={handleVideoUrl}
+              className="w-full px-4 py-2 text-sm rounded-lg bg-white/[0.02] hover:bg-white/[0.02] transition-colors"
+            >
+              输入在线视频 URL
+            </button>
+          </div>
         </div>
       </div>
 
@@ -126,6 +186,8 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
                   ? { background: bg.value }
                   : bg.type === "gradient"
                   ? { backgroundImage: bg.value }
+                  : bg.type === "video" || bg.type === "wallpaper"
+                  ? { background: "linear-gradient(45deg, #8b5cf6, #3b82f6)" }
                   : { background: "linear-gradient(45deg, #8b5cf6, #3b82f6)" }
               }
             />
@@ -134,14 +196,15 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
                 {bg.type === "color" && "纯色背景"}
                 {bg.type === "gradient" && "渐变背景"}
                 {bg.type === "video" && "视频背景"}
+                {bg.type === "wallpaper" && "本地壁纸"}
               </div>
               <div className="text-xs text-muted-foreground truncate">
-                {bg.type === "video" ? bg.value.slice(0, 40) + "..." : bg.value.slice(0, 30)}
+                {selectedLabel || "系统预设"}
               </div>
             </div>
             <button
-              onClick={() => handleApply(presets[1])}
-              className="px-3 py-1 text-xs rounded bg-white/[0.06] hover:bg-white/[0.1] transition-colors"
+              onClick={() => { setSelectedLabel(""); handleApply(presets[1]); }}
+              className="px-3 py-1 text-xs rounded bg-white/[0.03] hover:bg-white/[0.1] transition-colors"
             >
               重置
             </button>
@@ -152,7 +215,7 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
       <div className="flex gap-3 pt-4 border-t border-white/[0.06]">
         <button
           onClick={onClose}
-          className="flex-1 px-4 py-2 text-sm rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-colors"
+          className="flex-1 px-4 py-2 text-sm rounded-lg bg-white/[0.02] hover:bg-white/[0.02] transition-colors"
         >
           关闭
         </button>
