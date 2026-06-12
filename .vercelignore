@@ -1,0 +1,6 @@
+# 壁纸等大文件不进 Vercel 部署
+public/uploads/wallpaper/
+
+# 临时产物
+dev-output.log
+cp-blog-review.html

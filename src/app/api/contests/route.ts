@@ -30,7 +30,7 @@ export async function GET() {
     }
 
     // 2. Try database cache (persistent)
-    let dbContests = [];
+    let dbContests: { platform: string; name: string; date: string; time: string; duration: string; url: string; updatedAt: Date }[] = [];
     try {
       dbContests = await prisma.contest.findMany({
         orderBy: { date: "asc" },
