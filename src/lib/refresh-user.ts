@@ -129,10 +129,11 @@ export async function refreshUserSubmissions(
   cfHandle: string,
   atcHandle: string,
   ncHandle: string,
-  opts?: { cfCount?: number; cfOnlyAC?: boolean; ncOnlyAC?: boolean; force?: boolean },
+  opts?: { cfCount?: number; cfOnlyAC?: boolean; atcOnlyAC?: boolean; ncOnlyAC?: boolean; force?: boolean },
 ): Promise<SubmissionsRefreshResult> {
   const cfCount = opts?.cfCount ?? 5000;
   const cfOnlyAC = opts?.cfOnlyAC ?? false;
+  const atcOnlyAC = opts?.atcOnlyAC ?? false;
   const ncOnlyAC = opts?.ncOnlyAC ?? false;
 
   const result: SubmissionsRefreshResult = { total: 0, failed: [] };
@@ -182,8 +183,9 @@ export async function refreshUserSubmissions(
   }
 
   if (atcSubs.status === "fulfilled") {
+    const atcFiltered = atcOnlyAC ? atcSubs.value.filter((s) => s.verdict === "AC") : atcSubs.value;
     subs.push(
-      ...atcSubs.value.map((s) => ({
+      ...atcFiltered.map((s) => ({
         userId,
         platform: "AtC" as const,
         problemId: s.problemId,

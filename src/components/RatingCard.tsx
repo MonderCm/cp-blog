@@ -68,7 +68,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   ];
 
   return (
-    <div className="bg-white/95 backdrop-blur border border-black/[0.08] rounded-lg px-3 py-2 shadow-lg text-xs dark:bg-zinc-800/95">
+    <div className="rounded-lg px-3 py-2 shadow-lg text-xs" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
       <div className="text-muted-foreground mb-1.5 font-medium">{d.date}</div>
       {platforms.map((p) => {
         if (p.rating == null) return null;
@@ -77,7 +77,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
         return (
           <div key={p.key} className="mb-1.5">
             {p.changed && p.contest && (
-              <div className="mb-1 px-2 py-1 rounded-md text-[11px] max-w-[280px] text-foreground/70" style={{ wordBreak: "break-word", whiteSpace: "normal", background: "rgba(0,0,0,0.10)", borderLeft: `2px solid ${p.color}` }}>
+              <div className="mb-1 px-2 py-1 rounded-md text-[11px] max-w-[280px] text-foreground/70" style={{ wordBreak: "break-word", whiteSpace: "normal", background: "var(--surface-bg)", borderLeft: `2px solid ${p.color}` }}>
                 {p.contest}
               </div>
             )}
@@ -269,68 +269,58 @@ export default function RatingCard({ cf, atc, nc, cfContestHistory, atcContestHi
   }, [cfContestHistory, atcContestHistory, ncContestHistory]);
 
   return (
-    <div className="glass-card p-5 relative overflow-hidden group hover:border-white/[0.12] transition-colors">
-      {/* 背景光晕 */}
-      <div
-        className="absolute -top-16 -right-16 w-32 h-32 rounded-full blur-3xl opacity-15"
-        style={{ background: cfHex }}
-      />
-      <div
-        className="absolute -bottom-16 -left-16 w-32 h-32 rounded-full blur-3xl opacity-10"
-        style={{ background: atcHex }}
-      />
-
+    <div className="card p-5 relative overflow-hidden">
       <div className="relative z-10">
-        {/* ---- 两个平台卡片并排 ---- */}
-        <div className="grid grid-cols-3 gap-4 mb-5">
+        {/* ---- 三个平台卡片并排 ---- */}
+        <div className="grid grid-cols-3 gap-3 mb-5">
           {/* Codeforces */}
-          <div className="rounded-xl bg-black/[0.02] p-4 border border-black/[0.05]">
+          <div className="surface p-4">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-semibold text-[#6366f1]">Codeforces</span>
-              <span className="text-xs text-muted-foreground font-mono">@{cf.handle}</span>
+              <span className="text-xs font-semibold text-[#6366f1] tracking-wide">CF</span>
+              <span className="text-[11px] text-muted-foreground font-mono">@{cf.handle}</span>
             </div>
             <div className="flex items-baseline gap-2 mb-0.5">
-              <span className="text-3xl font-bold tabular-nums" style={{ color: cfHex, fontFamily: "'JetBrains Mono', monospace" }}>
+              <span className="text-2xl font-bold tabular-nums" style={{ color: cfHex, fontFamily: "'JetBrains Mono', monospace" }}>
                 {cf.rating}
               </span>
-              <span className="text-sm font-medium" style={{ color: cfHex }}>{cf.rank}</span>
+              <span className="text-xs font-medium" style={{ color: cfHex }}>{cf.rank}</span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              最高 {cf.maxRating}（{cf.maxRank}）
+            <div className="text-[11px] text-muted-foreground">
+              max {cf.maxRating}
             </div>
           </div>
 
           {/* AtCoder */}
-          <div className="rounded-xl bg-black/[0.02] p-4 border border-black/[0.05]">
+          <div className="surface p-4">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-semibold text-[#10b981]">AtCoder</span>
-              <span className="text-xs text-muted-foreground font-mono">@{atc.handle}</span>
+              <span className="text-xs font-semibold text-[#10b981] tracking-wide">AtC</span>
+              <span className="text-[11px] text-muted-foreground font-mono">@{atc.handle}</span>
             </div>
             <div className="flex items-baseline gap-2 mb-0.5">
-              <span className="text-3xl font-bold tabular-nums" style={{ color: atcHex, fontFamily: "'JetBrains Mono', monospace" }}>
+              <span className="text-2xl font-bold tabular-nums" style={{ color: atcHex, fontFamily: "'JetBrains Mono', monospace" }}>
                 {atc.rating}
               </span>
-              <span className="text-sm font-medium" style={{ color: atcHex }}>{atc.rank}</span>
+              <span className="text-xs font-medium" style={{ color: atcHex }}>{atc.rank}</span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              最高 {atc.maxRating}（{atc.maxRank}）
+            <div className="text-[11px] text-muted-foreground">
+              max {atc.maxRating}
             </div>
           </div>
 
           {/* 牛客网 */}
-          <div className="rounded-xl bg-black/[0.02] p-4 border border-black/[0.05]">
+          <div className="surface p-4">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-semibold text-[#f59e0b]">牛客网</span>
-              <span className="text-xs text-muted-foreground font-mono">@{nc.handle}</span>
+              <span className="text-xs font-semibold text-[#f59e0b] tracking-wide">NC</span>
+              <span className="text-[11px] text-muted-foreground font-mono">@{nc.handle}</span>
             </div>
             <div className="flex items-baseline gap-2 mb-0.5">
-              <span className="text-3xl font-bold tabular-nums" style={{ color: ncHex, fontFamily: "'JetBrains Mono', monospace" }}>
+              <span className="text-2xl font-bold tabular-nums" style={{ color: ncHex, fontFamily: "'JetBrains Mono', monospace" }}>
                 {nc.rating}
               </span>
-              <span className="text-sm font-medium" style={{ color: ncHex }}>{nc.rank}</span>
+              <span className="text-xs font-medium" style={{ color: ncHex }}>{nc.rank}</span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              最高 {nc.maxRating}（{nc.maxRank}）
+            <div className="text-[11px] text-muted-foreground">
+              max {nc.maxRating}
             </div>
           </div>
         </div>
@@ -384,7 +374,7 @@ export default function RatingCard({ cf, atc, nc, cfContestHistory, atcContestHi
                 width={44}
                 domain={[0, 3200]}
               />
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.18)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
               {/* CF 段位背景色带 */}
               <ReferenceArea y1={0} y2={1200} fill="#cccccc" fillOpacity={0.12} />
               <ReferenceArea y1={1200} y2={1400} fill="#77ff77" fillOpacity={0.12} />
@@ -430,15 +420,12 @@ export default function RatingCard({ cf, atc, nc, cfContestHistory, atcContestHi
         </div>
 
         {/* ---- 热力图 ---- */}
-        <div className="border-t border-black/[0.06] pt-4">
+        <div className="border-t pt-4" style={{ borderColor: "var(--surface-border)" }}>
           <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="text-muted-foreground">
-              <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0V1.5h-8a1 1 0 0 0-1 1v6.708A2.5 2.5 0 0 1 4.5 9h3.25a.75.75 0 0 1 0 1.5H4.5a1 1 0 0 0 0 2h3.25a.75.75 0 0 1 0 1.5H4.5A2.5 2.5 0 0 1 2 11.5v-9zM14.5 9a2.5 2.5 0 0 0-2.5-2.5H7.75a.75.75 0 0 0 0 1.5H12a1 1 0 0 1 0 2H9.75a.75.75 0 0 0 0 1.5H12a1 1 0 0 1 0 2H7.75a.75.75 0 0 0 0 1.5H12a2.5 2.5 0 0 0 2.5-2.5V9z" />
-            </svg>
-            刷题热力图{loading && <span className="inline-block w-3 h-3 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin ml-1" />}
+            <span className="text-muted-foreground">刷题热力图</span>{loading && <span className="inline-block w-3 h-3 border-2 rounded-full animate-spin ml-1" style={{ borderColor: "var(--accent-soft)", borderTopColor: "var(--accent)" }} />}
           </h2>
           {loading && !Object.keys(heatmapData).length ? (
-            <div className="bg-black/[0.02] rounded-lg h-[140px] flex items-center justify-center">
+            <div className="surface rounded-lg h-[140px] flex items-center justify-center">
               <span className="text-[11px] text-muted-foreground">加载中...</span>
             </div>
           ) : (

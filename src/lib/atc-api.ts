@@ -127,36 +127,79 @@ export interface AtCSubmissionRaw {
   submitTime: number;
 }
 
+/* kenkoooo AtCoder Problems API —— AtCoder 官方无提交记录接口,这是社区标准数据源 */
+const KENKOOOO_BASE = "https://kenkoooo.com/atcoder";
+
+interface KenkooooSubmission {
+  id: number;
+  epoch_second: number;
+  problem_id: string;
+  contest_id: string;
+  language: string;
+  point: number;
+  result: string;
+}
+
+/** problem_id → 题目名(如 "abc300_a" → "A. N-choice question"),进程内缓存 */
+let problemNames: Map<string, string> | null = null;
+
+async function getProblemNames(): Promise<Map<string, string>> {
+  if (problemNames) return problemNames;
+  try {
+    const resp = await fetch(`${KENKOOOO_BASE}/resources/problems.json`, {
+      // kenkoooo API 强制要求 gzip,缺这个头会 403
+      headers: { "User-Agent": UA, "Accept-Encoding": "gzip" },
+      signal: AbortSignal.timeout(15000),
+      next: { revalidate: 86400 },
+    });
+    if (!resp.ok) return new Map();
+    const list = (await resp.json()) as { id: string; title: string }[];
+    problemNames = new Map(list.map((p) => [p.id, p.title]));
+    return problemNames;
+  } catch {
+    return new Map(); // 失败不缓存,下次重试;题目名回退为 problem_id
+  }
+}
+
+/**
+ * 拉取用户全部提交(kenkoooo v3 API,按 from_second 翻页,每页最多 500 条)
+ */
 export async function fetchAtCSubmissions(handle: string): Promise<AtCSubmissionRaw[]> {
   if (!handle) return [];
   try {
-    const resp = await fetch(`${ATC_BASE}/users/${handle}/history/json`, {
-      headers: { "User-Agent": UA },
-      signal: AbortSignal.timeout(8000),
-      next: { revalidate: 3600 },
-    });
-    if (!resp.ok) return [];
+    const namesPromise = getProblemNames();
 
-    const history = await resp.json();
-    if (!Array.isArray(history)) return [];
+    const all: KenkooooSubmission[] = [];
+    let fromSecond = 0;
+    for (let page = 0; page < 20; page++) {
+      const resp = await fetch(
+        `${KENKOOOO_BASE}/atcoder-api/v3/user/submissions?user=${encodeURIComponent(handle)}&from_second=${fromSecond}`,
+        {
+          headers: { "User-Agent": UA, "Accept-Encoding": "gzip" },
+          signal: AbortSignal.timeout(10000),
+          next: { revalidate: 3600 },
+        }
+      );
+      if (!resp.ok) break;
+      const batch = (await resp.json()) as KenkooooSubmission[];
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      all.push(...batch);
+      if (batch.length < 500) break;
+      fromSecond = batch[batch.length - 1].epoch_second + 1;
+    }
 
-    return (history as AtCHistoryEntry[])
-      .filter((h) => h.IsRated && h.EndTime)
-      .map((h) => {
-        const endDate = new Date(h.EndTime);
-        const contestId = (h.ContestScreenName || "").replace(".contest.atcoder.jp", "");
-        return {
-          id: `atc-${contestId}-${endDate.getTime()}`,
-          problemId: contestId,
-          problemName: h.ContestNameEn || h.ContestName || contestId,
-          contestId,
-          problemUrl: `https://atcoder.jp/contests/${contestId}`,
-          verdict: "AC",
-          language: "N/A",
-          score: h.NewRating || 0,
-          submitTime: Math.floor(endDate.getTime() / 1000),
-        };
-      });
+    const names = await namesPromise;
+    return all.map((s) => ({
+      id: `atc-${s.id}`,
+      problemId: s.problem_id,
+      problemName: names.get(s.problem_id) || s.problem_id,
+      contestId: s.contest_id,
+      problemUrl: `${ATC_BASE}/contests/${s.contest_id}/tasks/${s.problem_id}`,
+      verdict: s.result,
+      language: s.language,
+      score: Math.round(s.point),
+      submitTime: s.epoch_second,
+    }));
   } catch (e) {
     console.error("[atc-api] fetchAtCSubmissions error:", e);
     return [];

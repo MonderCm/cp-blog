@@ -16,12 +16,6 @@ export interface UserProfile {
   ncHandle: string;
 }
 
-export interface UserListItem extends UserProfile {
-  cfRating: number;
-  atcRating: number;
-  ncRating: number;
-  updatedAt: string;
-}
 
 /** 字段默认值——DB 不可达时回退 + SettingsModal placeholder */
 export const PROFILE_FIELD_DEFAULTS: Omit<UserProfile, "slug"> = {
@@ -74,30 +68,4 @@ export async function getUserBySlug(slug: string): Promise<UserProfile | null> {
   }
 }
 
-/** 列出所有用户(主页用),失败返回空数组保证 UI 不崩 */
-export async function listUsers(): Promise<UserListItem[]> {
-  try {
-    const rows = await prisma.user.findMany({
-      orderBy: { updatedAt: "desc" },
-      take: 200,
-    });
-    return rows.map((u) => ({
-      slug: u.slug,
-      avatar: u.avatar,
-      name: u.name,
-      bio: u.bio,
-      signature: u.signature,
-      location: u.location,
-      cfHandle: u.cfHandle,
-      atcHandle: u.atcHandle,
-      ncHandle: u.ncHandle,
-      cfRating: u.cfRating,
-      atcRating: u.atcRating,
-      ncRating: u.ncRating,
-      updatedAt: u.updatedAt.toISOString(),
-    }));
-  } catch (e) {
-    console.warn("[user] listUsers failed:", e);
-    return [];
-  }
-}
+

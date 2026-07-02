@@ -147,18 +147,19 @@ export default function SubmissionLog({
   }, [hasMore]);
 
   return (
-    <div className="glass-card p-6">
+    <div className="card p-6">
       <div className="flex items-center justify-between mb-5">
-        <div className="flex gap-1 bg-black/[0.04] rounded-lg p-1">
+        <div className="flex gap-1 rounded-lg p-1" style={{ background: "var(--surface-bg)" }}>
           {(["all", "cf", "atc", "nc"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-3 py-1 text-xs rounded-md transition-all ${
                 filter === f
-                  ? "bg-white text-foreground shadow-sm"
+                  ? "shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
+              style={filter === f ? { background: "var(--card-bg)", color: "var(--color-foreground)" } : {}}
             >
               {f === "all" ? "全部" : f === "cf" ? "Codeforces" : f === "atc" ? "AtCoder" : "牛客网"}
             </button>
@@ -173,11 +174,11 @@ export default function SubmissionLog({
           return (
             <div key={date}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-8 h-8 rounded-full bg-black/[0.04] flex items-center justify-center text-xs text-muted-foreground">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs text-muted-foreground" style={{ background: "var(--surface-bg)" }}>
                   {dayNum}
                 </div>
                 <span className="text-sm text-muted-foreground">{label}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-black/[0.04] text-muted-foreground">
+                <span className="text-xs px-2 py-0.5 rounded-full text-muted-foreground" style={{ background: "var(--surface-bg)" }}>
                   {subs.length} 题
                 </span>
               </div>
@@ -195,7 +196,7 @@ export default function SubmissionLog({
                       href={sub.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block p-3 rounded-lg bg-black/[0.02] hover:bg-black/[0.04] border border-black/[0.04] hover:border-black/[0.08] transition-all group"
+                      className="block p-3 rounded-lg hover:border-transparent transition-all group surface"
                     >
                       <div className="flex items-center gap-3 flex-wrap">
                         <span
@@ -205,12 +206,12 @@ export default function SubmissionLog({
                           {sub.platform}
                         </span>
 
-                        <span className="text-sm font-medium group-hover:text-indigo-500 transition-colors truncate max-w-[300px]">
+                        <span className="text-sm font-medium transition-colors truncate max-w-[300px]" style={{ color: "var(--color-foreground)" }}>
                           {sub.id} {sub.name}
                         </span>
 
                         {sub.score > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-black/[0.04] text-muted-foreground">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-mono text-muted-foreground" style={{ background: "var(--surface-bg)" }}>
                             {sub.score}
                           </span>
                         )}
@@ -240,7 +241,7 @@ export default function SubmissionLog({
       {/* 无限滚动 sentinel */}
       {hasMore && (
         <div ref={sentinelRef} className="flex justify-center py-4">
-          <span className="inline-block w-4 h-4 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
+          <span className="inline-block w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: "var(--accent-soft)", borderTopColor: "var(--accent)" }} />
         </div>
       )}
     </div>

@@ -113,7 +113,8 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
             <button
               key={preset.name}
               onClick={() => handleApply(preset)}
-              className="p-3 rounded-lg border border-white/[0.08] hover:border-indigo-500/50 transition-colors text-left"
+              className="p-3 rounded-lg transition-colors text-left"
+              style={{ border: "1px solid var(--surface-border)" }}
             >
               <div
                 className="w-full h-16 rounded mb-2"
@@ -145,13 +146,14 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
                 onChange={handleFolderSelect}
                 className="hidden"
               />
-              <div className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-muted-foreground truncate">
+              <div className="flex-1 rounded-lg px-3 py-2 text-xs text-muted-foreground truncate" style={{ background: "var(--surface-bg)", border: "1px solid var(--surface-border)" }}>
                 {selectedLabel || "未选择文件夹"}
               </div>
               <button
                 onClick={() => folderInputRef.current?.click()}
                 disabled={wallpaperLoading}
-                className="px-3 py-2 text-xs rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition-colors disabled:opacity-50 whitespace-nowrap"
+                className="px-3 py-2 text-xs rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+                style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
               >
                 {wallpaperLoading ? "加载中..." : "选择文件夹"}
               </button>
@@ -167,7 +169,8 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
           <div className="space-y-2">
             <button
               onClick={handleVideoUrl}
-              className="w-full px-4 py-2 text-sm rounded-lg bg-white/[0.02] hover:bg-white/[0.02] transition-colors"
+              className="w-full px-4 py-2 text-sm rounded-lg transition-colors"
+              style={{ background: "var(--surface-bg)" }}
             >
               输入在线视频 URL
             </button>
@@ -177,7 +180,7 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
 
       <div>
         <h3 className="text-sm font-medium mb-3">当前背景</h3>
-        <div className="p-4 rounded-lg border border-white/[0.08] bg-white/[0.02]">
+        <div className="p-4 rounded-lg" style={{ border: "1px solid var(--surface-border)", background: "var(--surface-bg)" }}>
           <div className="flex items-center gap-3">
             <div
               className="w-12 h-12 rounded"
@@ -204,7 +207,8 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
             </div>
             <button
               onClick={() => { setSelectedLabel(""); handleApply(presets[1]); }}
-              className="px-3 py-1 text-xs rounded bg-white/[0.03] hover:bg-white/[0.1] transition-colors"
+              className="px-3 py-1 text-xs rounded transition-colors"
+              style={{ background: "var(--surface-bg)" }}
             >
               重置
             </button>
@@ -212,10 +216,11 @@ export default function BackgroundSettings({ onClose }: BackgroundSettingsProps)
         </div>
       </div>
 
-      <div className="flex gap-3 pt-4 border-t border-white/[0.06]">
+      <div className="flex gap-3 pt-4" style={{ borderTop: "1px solid var(--surface-border)" }}>
         <button
           onClick={onClose}
-          className="flex-1 px-4 py-2 text-sm rounded-lg bg-white/[0.02] hover:bg-white/[0.02] transition-colors"
+          className="flex-1 px-4 py-2 text-sm rounded-lg transition-colors"
+          style={{ background: "var(--surface-bg)" }}
         >
           关闭
         </button>

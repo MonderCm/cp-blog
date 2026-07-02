@@ -191,7 +191,7 @@ function Donut({ data, total }: { data: { tag: string; count: number; color: str
   }, []);
   return (
     <svg width={120} height={120} viewBox="0 0 120 120">
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={sw} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface-border)" strokeWidth={sw} />
       {segments.map(d => {
         const dasharray = `${d.len} ${C - d.len}`;
         const dashoffset = -d.offset;
@@ -235,7 +235,7 @@ export default function InsightCards({ subs }: Props) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
       {/* Streak */}
-      <div className="glass-card p-5">
+      <div className="card p-5">
         <div className="text-xs text-muted-foreground mb-3">打卡指标</div>
         <div className="grid grid-cols-2 gap-3">
           <StreakStat label="当前连续" value={streak.current} unit="天" accent="#f59e0b" />
@@ -246,7 +246,7 @@ export default function InsightCards({ subs }: Props) {
       </div>
 
       {/* Top Tags 圆环 */}
-      <div className="glass-card p-5">
+      <div className="card p-5">
         <div className="text-xs text-muted-foreground mb-3">算法标签分布</div>
         <div className="flex items-center gap-4">
           <Donut data={topTags} total={tagsTotal} />
@@ -269,7 +269,7 @@ export default function InsightCards({ subs }: Props) {
       </div>
 
       {/* 难度分布 */}
-      <div className="glass-card p-5 md:col-span-2">
+      <div className="card p-5 md:col-span-2">
         <div className="flex items-center justify-between mb-3">
           <div className="text-xs text-muted-foreground">题目难度分布</div>
           <div className="flex gap-3 text-[10px] text-muted-foreground">
@@ -313,7 +313,7 @@ export default function InsightCards({ subs }: Props) {
 
 function StreakStat({ label, value, unit, accent }: { label: string; value: number; unit: string; accent: string }) {
   return (
-    <div className="rounded-md bg-black/[0.02] border border-black/[0.04] px-3 py-2.5">
+    <div className="surface px-3 py-2.5 rounded-lg">
       <div className="text-[10px] text-muted-foreground">{label}</div>
       <div className="flex items-baseline gap-1 mt-1">
         <span className="text-2xl font-semibold tabular-nums" style={{ color: accent }}>{value}</span>

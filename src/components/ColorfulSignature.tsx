@@ -32,7 +32,7 @@ export default function ColorfulSignature({ text }: ColorfulSignatureProps) {
     const interval = setInterval(() => {
       setYOffsets(
         Array.from({ length: text.length }, (_, i) =>
-          Math.sin(Date.now() / 300 + i * 0.3) * 6
+          Math.sin(Date.now() / 400 + i * 0.3) * 4
         )
       );
     }, 50);
@@ -49,7 +49,7 @@ export default function ColorfulSignature({ text }: ColorfulSignatureProps) {
           style={{
             color: c.color,
             transform: `translateY(${yOffsets[i] ?? 0}px)`,
-            textShadow: `0 0 10px ${c.color}40, 0 0 20px ${c.color}20`,
+            textShadow: `0 0 8px ${c.color}30, 0 0 16px ${c.color}15`,
           }}
         >
           {c.char}

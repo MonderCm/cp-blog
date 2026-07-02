@@ -67,7 +67,7 @@ function Countdown({ target }: { target: string }) {
   }, [target]);
 
   return (
-    <span className="text-sm font-mono tabular-nums text-indigo-400">{text}</span>
+    <span className="text-sm font-mono tabular-nums" style={{ color: "var(--accent-text)" }}>{text}</span>
   );
 }
 
@@ -91,7 +91,7 @@ function ContestCard({
       href={contest.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.02] transition-colors group"
+      className="flex items-center gap-3 p-3 rounded-xl transition-colors group surface"
     >
       <div
         className="w-2 h-2 rounded-full shrink-0"
@@ -114,9 +114,12 @@ function ContestCard({
         }}
         className={`shrink-0 px-3 py-1 text-xs rounded-full transition-colors ${
           registered
-            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-            : "bg-white/[0.02] text-muted-foreground border border-white/[0.06] hover:border-indigo-500/30 hover:text-indigo-300"
+            ? "border"
+            : "border text-muted-foreground"
         }`}
+        style={registered
+          ? { background: "rgba(16, 185, 129, 0.12)", color: "#059669", borderColor: "rgba(16, 185, 129, 0.2)" }
+          : { background: "var(--surface-bg)", borderColor: "var(--surface-border)" }}
       >
         {registered ? "已报名" : "未报名"}
       </button>
@@ -203,13 +206,13 @@ export default function ContestCalendar({
   const total = cfContests.length + atcContests.length + ncContests.length;
   if (total === 0) {
     return (
-      <div className="glass-card p-8 text-center text-muted-foreground">
+      <div className="card p-8 text-center text-muted-foreground">
         暂无即将举办的比赛      </div>
     );
   }
 
   return (
-    <div className="glass-card p-6">
+    <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-semibold">即将举办的比赛</h2>
         <span className="text-xs text-muted-foreground">{total} 场</span>

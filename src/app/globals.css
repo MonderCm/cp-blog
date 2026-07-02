@@ -27,30 +27,39 @@
 /* —— 主题运行时变量,浅色默认 —— */
 :root {
   --bg-base:           #fafbfc;
-  --bg-glow-1:         rgba(165, 180, 252, 0.18);
-  --bg-glow-2:         rgba(167, 243, 208, 0.18);
-  --bg-glow-3:         rgba(253, 230, 138, 0.12);
+  --bg-glow-1:         rgba(165, 180, 252, 0.12);
+  --bg-glow-2:         rgba(167, 243, 208, 0.10);
+  --bg-glow-3:         rgba(253, 230, 138, 0.08);
 
-  --glass-bg:          rgba(255, 255, 255, 0.72);
-  --glass-border:      rgba(15, 23, 42, 0.06);
-  --glass-shadow-1:    rgba(15, 23, 42, 0.03);
-  --glass-shadow-2:    rgba(15, 23, 42, 0.06);
+  /* 卡片:半透明纯色,不模糊,与背景自然融合 */
+  --card-bg:           rgba(255, 255, 255, 0.88);
+  --card-border:       rgba(0, 0, 0, 0.06);
+  --card-shadow:       0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px -4px rgba(0, 0, 0, 0.03);
 
-  --input-bg:          rgba(15, 23, 42, 0.03);
-  --input-border:      rgba(15, 23, 42, 0.08);
+  --surface-bg:        rgba(0, 0, 0, 0.025);
+  --surface-border:    rgba(0, 0, 0, 0.05);
 
-  --scrollbar-thumb:   rgba(15, 23, 42, 0.12);
-  --scrollbar-thumb-hover: rgba(15, 23, 42, 0.22);
+  --input-bg:          rgba(0, 0, 0, 0.025);
+  --input-border:      rgba(0, 0, 0, 0.07);
 
-  /* 顶栏与左侧导航的玻璃底 */
-  --bar-bg:            rgba(255, 255, 255, 0.7);
-  --bar-border:        rgba(0, 0, 0, 0.06);
+  --scrollbar-thumb:   rgba(0, 0, 0, 0.10);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.18);
 
-  /* 热力图网格背景:比周围卡片略深一点,不突兀 */
-  --heatmap-bg:        rgba(15, 23, 42, 0.04);
+  /* 顶栏与左侧导航 */
+  --bar-bg:            rgba(255, 255, 255, 0.92);
+  --bar-border:        rgba(0, 0, 0, 0.05);
+
+  /* 热力图 */
+  --heatmap-bg:        rgba(0, 0, 0, 0.03);
+  --heat-ring:         rgba(0, 0, 0, 0.25);
+
+  /* 强调色:柔和靛蓝 */
+  --accent:            #6366f1;
+  --accent-soft:       rgba(99, 102, 241, 0.10);
+  --accent-text:       #5b5bd6;
 }
 
-/* —— 深色主题:html.dark —— */
+/* —— 深色主题 —— */
 html.dark {
   --color-background:           hsl(240 8% 8%);
   --color-foreground:           hsl(240 10% 92%);
@@ -63,7 +72,7 @@ html.dark {
   --color-secondary:            hsl(240 8% 16%);
   --color-secondary-foreground: hsl(240 10% 92%);
   --color-muted:                hsl(240 8% 16%);
-  --color-muted-foreground:     hsl(240 5% 60%);
+  --color-muted-foreground:     hsl(240 5% 58%);
   --color-accent:               hsl(240 8% 16%);
   --color-accent-foreground:    hsl(240 10% 92%);
   --color-destructive:          hsl(0 70% 55%);
@@ -73,25 +82,32 @@ html.dark {
   --color-ring:                 hsl(240 6% 50%);
 
   --bg-base:           #0f1115;
-  --bg-glow-1:         rgba(99, 102, 241, 0.15);
-  --bg-glow-2:         rgba(20, 184, 166, 0.12);
-  --bg-glow-3:         rgba(244, 114, 182, 0.08);
+  --bg-glow-1:         rgba(99, 102, 241, 0.10);
+  --bg-glow-2:         rgba(20, 184, 166, 0.08);
+  --bg-glow-3:         rgba(244, 114, 182, 0.06);
 
-  --glass-bg:          rgba(26, 29, 36, 0.7);
-  --glass-border:      rgba(255, 255, 255, 0.06);
-  --glass-shadow-1:    rgba(0, 0, 0, 0.4);
-  --glass-shadow-2:    rgba(0, 0, 0, 0.5);
+  --card-bg:           rgba(18, 20, 28, 0.82);
+  --card-border:       rgba(255, 255, 255, 0.05);
+  --card-shadow:       0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 16px -6px rgba(0, 0, 0, 0.25);
 
-  --input-bg:          rgba(255, 255, 255, 0.04);
-  --input-border:      rgba(255, 255, 255, 0.08);
+  --surface-bg:        rgba(255, 255, 255, 0.03);
+  --surface-border:    rgba(255, 255, 255, 0.04);
 
-  --scrollbar-thumb:   rgba(255, 255, 255, 0.12);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
+  --input-bg:          rgba(255, 255, 255, 0.03);
+  --input-border:      rgba(255, 255, 255, 0.06);
 
-  --bar-bg:            rgba(20, 23, 28, 0.7);
-  --bar-border:        rgba(255, 255, 255, 0.06);
+  --scrollbar-thumb:   rgba(255, 255, 255, 0.10);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.18);
 
-  --heatmap-bg:        rgba(255, 255, 255, 0.05);
+  --bar-bg:            rgba(14, 16, 22, 0.92);
+  --bar-border:        rgba(255, 255, 255, 0.04);
+
+  --heatmap-bg:        rgba(255, 255, 255, 0.03);
+  --heat-ring:         rgba(255, 255, 255, 0.4);
+
+  --accent:            #818cf8;
+  --accent-soft:       rgba(129, 140, 248, 0.12);
+  --accent-text:       #a5b4fc;
 }
 
 * {
@@ -111,19 +127,29 @@ body {
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* —— 玻璃卡 —— */
+/* —— 卡片:简约纯色,不用毛玻璃 —— */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card:hover {
+  border-color: rgba(99, 102, 241, 0.12);
+}
+
+/* 兼容旧 class,后续逐步迁移到 .card */
 .glass-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid var(--glass-border);
-  border-radius: 1rem;
-  box-shadow:
-    0 1px 2px var(--glass-shadow-1),
-    0 4px 16px -8px var(--glass-shadow-2);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .text-gradient {
-  background: linear-gradient(to right, #6366f1, #8b5cf6);
+  background: linear-gradient(to right, var(--accent), #a78bfa);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -167,10 +193,13 @@ body {
 .heatmap-cell:hover {
   animation: cell-pulse 1s ease-in-out infinite;
 }
+.heatmap-cell-active:hover {
+  box-shadow: 0 0 0 1.5px var(--heat-ring);
+}
 
 html { scroll-behavior: smooth; }
 
-::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
@@ -178,49 +207,55 @@ html { scroll-behavior: smooth; }
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
-/* SettingsModal 共用输入框样式 */
+/* SettingsModal 输入框 */
 .modal-input {
   width: 100%;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
-  border-radius: 0.5rem;
+  border-radius: 8px;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   color: inherit;
   outline: none;
-  transition: border-color 0.15s, background-color 0.15s;
+  transition: border-color 0.15s;
 }
 .modal-input:focus {
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: var(--accent);
 }
 
-/* —— 顶栏 / 左侧栏 玻璃底色,替代原硬编码的 bg-white/70 —— */
+/* 顶栏 / 左侧栏 */
 .themed-bar {
   background: var(--bar-bg);
-  backdrop-filter: blur(12px);
   border-color: var(--bar-border);
 }
 
-/* —— 主题切换按钮 —— */
+/* 主题切换按钮 */
 .theme-toggle {
   width: 32px;
   height: 32px;
-  border-radius: 9999px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg);
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
   color: var(--color-foreground);
   cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 .theme-toggle:hover {
-  transform: scale(1.06);
-  border-color: rgba(99, 102, 241, 0.4);
+  transform: scale(1.04);
+  border-color: var(--accent);
 }
 .theme-toggle svg {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.3s ease, opacity 0.2s ease;
+  width: 15px;
+  height: 15px;
+  transition: transform 0.2s ease, opacity 0.15s ease;
+}
+
+/* 通用 surface(卡片内嵌小卡片) */
+.surface {
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
 }

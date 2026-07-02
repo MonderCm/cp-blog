@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ContestCalendar from "@/components/ContestCalendar";
 import ColorfulSignature from "@/components/ColorfulSignature";
@@ -23,11 +22,11 @@ export type { RatingData, ProblemEntry, SubmissionDay } from "@/lib/types";
 const RatingCard = dynamic(() => import("@/components/RatingCard"), {
   ssr: false,
   loading: () => (
-    <div className="glass-card p-5 animate-pulse">
-      <div className="h-4 w-20 bg-black/[0.04] rounded mb-3" />
-      <div className="h-9 w-32 bg-black/[0.04] rounded mb-1" />
-      <div className="h-3 w-24 bg-black/[0.04] rounded mb-4" />
-      <div className="h-24 bg-black/[0.02] rounded" />
+    <div className="card p-5 animate-pulse">
+      <div className="h-4 w-20 rounded mb-3" style={{ background: "var(--surface-bg)" }} />
+      <div className="h-9 w-32 rounded mb-1" style={{ background: "var(--surface-bg)" }} />
+      <div className="h-3 w-24 rounded mb-4" style={{ background: "var(--surface-bg)" }} />
+      <div className="h-24 rounded" style={{ background: "var(--surface-bg)" }} />
     </div>
   ),
 });
@@ -291,81 +290,69 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
     }
   }, [profile, slug, refreshAll]);
 
-  const handleDelete = useCallback(() => {
-    router.push("/");
-  }, [router]);
-
   return (
     <>
       {/* 左侧功能区 */}
       <div className="fixed left-0 top-1/2 -translate-y-1/2 z-40 flex">
         <div
-          className="w-3 h-40 cursor-pointer group"
+          className="w-3 h-32 cursor-pointer group"
           onMouseEnter={() => setNavOpen(true)}
           onClick={() => setNavOpen((prev) => !prev)}
         />
         <div
-          className={`themed-bar flex flex-col gap-1.5 px-2 py-3 border rounded-r-lg transition-all duration-300 overflow-hidden min-w-[120px] shadow-sm
+          className={`themed-bar flex flex-col gap-0.5 px-1.5 py-2.5 border rounded-r-xl transition-all duration-300 overflow-hidden min-w-[110px]
             ${navOpen ? "w-auto opacity-100" : "w-0 opacity-0 pointer-events-none"}
             lg:w-auto lg:opacity-100 lg:pointer-events-auto`}
           onMouseLeave={() => setNavOpen(false)}
         >
           <button
             onClick={() => handleSectionChange("home")}
-            className={`text-xs py-1 px-2 rounded whitespace-nowrap transition-colors ${
+            className={`text-[11px] py-1.5 px-2.5 rounded-lg whitespace-nowrap transition-colors ${
               activeSection === "home"
-                ? "text-indigo-600 bg-indigo-500/10"
-                : "text-foreground/70 hover:text-foreground hover:bg-black/[0.04]"
+                ? "text-[var(--accent-text)] bg-[var(--accent-soft)]"
+                : "text-foreground/60 hover:text-foreground hover:bg-[var(--surface-bg)]"
             }`}
-          >🏠 首页</button>
+          >首页</button>
           <button
             onClick={() => handleSectionChange("submissions")}
-            className={`text-xs py-1 px-2 rounded whitespace-nowrap transition-colors ${
+            className={`text-[11px] py-1.5 px-2.5 rounded-lg whitespace-nowrap transition-colors ${
               activeSection === "submissions"
-                ? "text-indigo-600 bg-indigo-500/10"
-                : "text-foreground/70 hover:text-foreground hover:bg-black/[0.04]"
+                ? "text-[var(--accent-text)] bg-[var(--accent-soft)]"
+                : "text-foreground/60 hover:text-foreground hover:bg-[var(--surface-bg)]"
             }`}
-          >📝 刷题日志</button>
-          <div className="w-full h-px bg-black/[0.06] my-0.5" />
+          >刷题日志</button>
+          <div className="w-full h-px bg-[var(--card-border)] my-1" />
           <button
             onClick={() => handleSectionChange("contests")}
-            className={`text-xs py-1 px-2 rounded whitespace-nowrap transition-colors ${
+            className={`text-[11px] py-1.5 px-2.5 rounded-lg whitespace-nowrap transition-colors ${
               activeSection === "contests"
-                ? "text-indigo-600 bg-indigo-500/10"
-                : "text-foreground/70 hover:text-foreground hover:bg-black/[0.04]"
+                ? "text-[var(--accent-text)] bg-[var(--accent-soft)]"
+                : "text-foreground/60 hover:text-foreground hover:bg-[var(--surface-bg)]"
             }`}
-          >🏆 近期比赛</button>
-          <div className="w-full h-px bg-black/[0.06] my-0.5" />
-          <Link
-            href="/"
-            className="text-xs text-foreground/50 hover:text-foreground/70 transition-colors py-1 px-2 rounded hover:bg-black/[0.04] whitespace-nowrap"
-          >👥 用户列表</Link>
+          >近期比赛</button>
         </div>
       </div>
 
       {/* 顶部栏 */}
       <header className="themed-bar fixed top-0 left-0 right-0 z-30 border-b">
         <div className="flex items-center justify-between px-4 py-2">
-          <Link href="/" className="text-xs text-foreground/60 hover:text-foreground transition-colors">
-            ← 用户列表
-          </Link>
+          <div className="w-16" />
           <div className="flex-1 flex justify-center px-4">
             <div className="opacity-80 max-w-[320px]">
               <ColorfulSignature text={profile.signature || "代码改变世界"} />
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2.5 flex-shrink-0">
             <ThemeToggle />
             <div className="flex flex-col items-end leading-tight">
               <span className="text-[11px] font-medium text-foreground/80">{profile.name}</span>
               <button
                 onClick={() => setSettingsOpen(true)}
-                className="text-[10px] text-foreground/40 hover:text-foreground/70 transition-colors"
-              >编辑资料</button>
+                className="text-[10px] text-foreground/30 hover:text-foreground/60 transition-colors"
+              >编辑</button>
             </div>
             <div className="relative">
-              <div className="absolute inset-[-1.5px] rounded-full bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 blur-sm opacity-30" />
-              <div className="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-black/10">
+              <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-[var(--card-border)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={profile.avatar} alt="头像" className="w-full h-full object-cover" />
               </div>
@@ -377,7 +364,7 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
       <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
         {fetching && (
           <div className="text-xs text-muted-foreground flex items-center gap-2 mb-4">
-            <span className="inline-block w-3 h-3 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin" />
+            <span className="inline-block w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: "var(--accent-soft)", borderTopColor: "var(--accent)" }} />
             正在获取最新数据...
           </div>
         )}
@@ -392,10 +379,7 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
 
         {activeSection === "submissions" && (
           <section>
-            <h2 className="text-sm font-medium mb-4 flex items-center gap-2 text-white/60">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75V1.75zm8.755 3a2.25 2.25 0 0 1 2.25-2.25H14.5v9h-3.757c-.71 0-1.4.201-1.992.572l.004-7.322zm-1.504 7.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574z" />
-              </svg>
+            <h2 className="text-sm font-medium mb-4 text-muted-foreground">
               刷题日志
             </h2>
             <SubmissionLog cfSubmissions={subs.cf} atcSubmissions={subs.atc} ncSubmissions={subs.nc} />
@@ -404,11 +388,7 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
 
         {activeSection === "contests" && (
           <section>
-            <h2 className="text-sm font-medium mb-4 flex items-center gap-2 text-white/60">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm-3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm-5 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z" />
-                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z" />
-              </svg>
+            <h2 className="text-sm font-medium mb-4 text-muted-foreground">
               近期比赛
             </h2>
             <ContestCalendar cfContests={contests.cf} atcContests={contests.atc} ncContests={contests.nc} />
@@ -421,7 +401,6 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
         onClose={() => setSettingsOpen(false)}
         profile={profile}
         onSave={handleSave}
-        onDelete={handleDelete}
       />
     </>
   );

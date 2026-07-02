@@ -10,7 +10,6 @@ interface SettingsModalProps {
   onClose: () => void;
   profile: UserProfile;
   onSave: (data: UserProfile) => void;
-  onDelete: () => void;
 }
 
 type Tab = "profile" | "background";
@@ -20,18 +19,14 @@ export default function SettingsModal({
   onClose,
   profile,
   onSave,
-  onDelete,
 }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [form, setForm] = useState<UserProfile>(() => profile);
   const [uploading, setUploading] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleClose = () => {
     setForm(profile);
-    setDeleteConfirm(false);
     onClose();
   };
 
@@ -63,25 +58,6 @@ export default function SettingsModal({
     onClose();
   };
 
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/profile?slug=${encodeURIComponent(profile.slug)}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        alert(j.error || "删除失败");
-        return;
-      }
-      onDelete();
-    } catch {
-      alert("删除失败");
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -99,25 +75,27 @@ export default function SettingsModal({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
           >
-            <div className="glass-card p-6">
-              <div className="flex items-center gap-4 mb-6 border-b border-white/[0.06] pb-4">
+            <div className="card p-6">
+              <div className="flex items-center gap-4 mb-6 pb-4" style={{ borderBottom: "1px solid var(--surface-border)" }}>
                 <h2 className="text-lg font-semibold">设置</h2>
-                <div className="flex gap-1 bg-white/[0.02] rounded-lg p-0.5">
+                <div className="flex gap-1 rounded-lg p-0.5" style={{ background: "var(--surface-bg)" }}>
                   <button
                     onClick={() => setActiveTab("profile")}
                     className={`px-3 py-1 text-xs rounded-md transition-colors ${
                       activeTab === "profile"
-                        ? "bg-indigo-500/20 text-indigo-300"
-                        : "hover:bg-white/[0.03]"
+                        ? ""
+                        : "hover:text-foreground"
                     }`}
+                    style={activeTab === "profile" ? { background: "var(--accent-soft)", color: "var(--accent-text)" } : {}}
                   >个人资料</button>
                   <button
                     onClick={() => setActiveTab("background")}
                     className={`px-3 py-1 text-xs rounded-md transition-colors ${
                       activeTab === "background"
-                        ? "bg-indigo-500/20 text-indigo-300"
-                        : "hover:bg-white/[0.03]"
+                        ? ""
+                        : "hover:text-foreground"
                     }`}
+                    style={activeTab === "background" ? { background: "var(--accent-soft)", color: "var(--accent-text)" } : {}}
                   >网页背景</button>
                 </div>
               </div>
@@ -127,18 +105,13 @@ export default function SettingsModal({
               ) : (
                 <>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-white/[0.02] rounded px-2 py-1.5">
-                      <span>slug:</span>
-                      <code className="font-mono text-indigo-300">{profile.slug}</code>
-                      <span className="ml-auto opacity-60">不可修改</span>
-                    </div>
-
                     <div>
                       <label className="text-xs text-muted-foreground mb-1.5 block">头像</label>
                       <div className="flex gap-3">
                         <div className="flex-shrink-0">
                           <div
-                            className="w-16 h-16 rounded-full overflow-hidden ring-1 ring-white/[0.08] cursor-pointer hover:opacity-80 transition-opacity relative group"
+                            className="w-16 h-16 rounded-full overflow-hidden cursor-pointer hover:opacity-80 transition-opacity relative group"
+                            style={{ boxShadow: "0 0 0 1px var(--card-border)" }}
                             onClick={() => fileInputRef.current?.click()}
                           >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -157,7 +130,8 @@ export default function SettingsModal({
                           <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="px-3 py-1.5 text-xs rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition-colors disabled:opacity-50 self-start"
+                            className="px-3 py-1.5 text-xs rounded-lg transition-colors disabled:opacity-50 self-start"
+                            style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                           >{uploading ? "上传中..." : "选择本地图片"}</button>
                           <p className="text-[10px] text-muted-foreground mt-1">支持 JPG、PNG、GIF,最大 5MB</p>
                         </div>
@@ -192,7 +166,7 @@ export default function SettingsModal({
                       />
                     </Field>
 
-                    <div className="border-t border-white/[0.06] pt-4">
+                    <div className="pt-4" style={{ borderTop: "1px solid var(--surface-border)" }}>
                       <p className="text-xs text-muted-foreground mb-3">竞赛平台账号</p>
 
                       <div className="space-y-3">
@@ -232,36 +206,14 @@ export default function SettingsModal({
                   <div className="flex gap-3 mt-6">
                     <button
                       onClick={handleClose}
-                      className="flex-1 px-4 py-2 text-sm rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
+                      className="flex-1 px-4 py-2 text-sm rounded-lg transition-colors"
+                      style={{ background: "var(--surface-bg)" }}
                     >取消</button>
                     <button
                       onClick={handleSave}
-                      className="flex-1 px-4 py-2 text-sm rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition-colors"
+                      className="flex-1 px-4 py-2 text-sm rounded-lg transition-colors"
+                      style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
                     >保存</button>
-                  </div>
-
-                  <div className="border-t border-white/[0.06] mt-6 pt-4">
-                    {!deleteConfirm ? (
-                      <button
-                        onClick={() => setDeleteConfirm(true)}
-                        className="w-full px-4 py-2 text-sm rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-                      >删除主页</button>
-                    ) : (
-                      <div className="space-y-3">
-                        <p className="text-xs text-red-400 text-center">确定要删除这个主页吗？所有数据将被永久清除，不可恢复。</p>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setDeleteConfirm(false)}
-                            className="flex-1 px-4 py-2 text-sm rounded-lg bg-white/[0.02] hover:bg-white/[0.05] transition-colors"
-                          >取消</button>
-                          <button
-                            onClick={handleDelete}
-                            disabled={deleting}
-                            className="flex-1 px-4 py-2 text-sm rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors disabled:opacity-50"
-                          >{deleting ? "删除中..." : "确认删除"}</button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </>
               )}

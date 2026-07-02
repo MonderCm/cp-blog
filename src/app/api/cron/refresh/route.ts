@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         // 拉取提交记录
         const subsResult = await refreshUserSubmissions(
           user.id, user.cfHandle, user.atcHandle, user.ncHandle,
-          { cfOnlyAC: true, ncOnlyAC: true },
+          { cfOnlyAC: true, atcOnlyAC: true, ncOnlyAC: true },
         );
 
         if (ratingResult.failed.length > 0) {

@@ -67,3 +67,7 @@ scripts/nc-fetcher_*.js
 # 临时产物 / 调试日志
 dev-output.log
 cp-blog-review.html
+
+# IDE / 本地工具配置
+.idea/
+.claude/

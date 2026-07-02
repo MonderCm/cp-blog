@@ -83,7 +83,7 @@ export default function Heatmap({ submissions }: HeatmapProps) {
   }, [selectedYear]);
 
   /* ---- build grid ---- */
-  const { weeks, months, totalCount, totalProblems } = useMemo(() => {
+  const { weeks, months, totalCount, totalProblems, maxStreak, bestDay } = useMemo(() => {
     const s = new Date(start + "T00:00:00");
     const e = new Date(end + "T00:00:00");
 
@@ -112,11 +112,18 @@ export default function Heatmap({ submissions }: HeatmapProps) {
     }
     if (cw.length > 0) w.push(cw);
 
-    let tc = 0, tp = 0;
+    let tc = 0, tp = 0, streak = 0, ms = 0, bd = 0;
     for (const wk of w) for (const cell of wk) {
-      if (cell.count > 0) { tc++; tp += cell.count; }
+      if (cell.count > 0) {
+        tc++; tp += cell.count;
+        streak++;
+        if (streak > ms) ms = streak;
+        if (cell.count > bd) bd = cell.count;
+      } else {
+        streak = 0;
+      }
     }
-    return { weeks: w, months: mPos, totalCount: tc, totalProblems: tp };
+    return { weeks: w, months: mPos, totalCount: tc, totalProblems: tp, maxStreak: ms, bestDay: bd };
   }, [submissions, start, end]);
 
   /* ---- responsive cell size ---- */
@@ -165,16 +172,32 @@ export default function Heatmap({ submissions }: HeatmapProps) {
 
   return (
     <div className="select-none">
-      {/* ---- header row: label + year selector ---- */}
+      {/* ---- header row: stats + year selector ---- */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-muted-foreground">
-          {totalCount} 天刷了 {totalProblems} 题
-        </span>
+        <div className="flex items-baseline gap-3 text-xs text-muted-foreground">
+          <span>
+            <span className="text-sm font-semibold" style={{ color: "var(--accent-text)" }}>{totalProblems}</span> 题
+          </span>
+          <span>
+            <span className="text-sm font-semibold text-foreground/80">{totalCount}</span> 活跃天
+          </span>
+          {maxStreak > 1 && (
+            <span>
+              最长连续 <span className="text-sm font-semibold text-foreground/80">{maxStreak}</span> 天
+            </span>
+          )}
+          {bestDay > 0 && (
+            <span className="hidden sm:inline">
+              单日最多 <span className="text-sm font-semibold text-foreground/80">{bestDay}</span> 题
+            </span>
+          )}
+        </div>
 
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setYearOpen(v => !v)}
-            className="flex items-center gap-1 text-xs text-muted-foreground bg-black/[0.03] hover:bg-black/[0.06] border border-black/[0.08] rounded-md px-3 py-1 transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground rounded-md px-3 py-1 transition-colors"
+            style={{ background: "var(--surface-bg)", border: "1px solid var(--surface-border)" }}
           >
             {label}
             <svg width="10" height="10" viewBox="0 0 10 10" className={`transition-transform ${yearOpen ? "rotate-180" : ""}`}>
@@ -182,10 +205,11 @@ export default function Heatmap({ submissions }: HeatmapProps) {
             </svg>
           </button>
           {yearOpen && (
-            <div className="absolute right-0 top-full mt-1 bg-white border border-black/[0.1] rounded-md py-1 shadow-lg z-30 min-w-[110px]">
+            <div className="absolute right-0 top-full mt-1 rounded-md py-1 shadow-lg z-30 min-w-[110px]" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
               <button
                 onClick={() => handleYearSelect(null)}
-                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-black/[0.04] transition-colors ${!selectedYear ? "text-indigo-600 bg-indigo-50" : "text-muted-foreground"}`}
+                className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${!selectedYear ? "font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                style={!selectedYear ? { background: "var(--accent-soft)", color: "var(--accent-text)" } : {}}
               >
                 过去一年
               </button>
@@ -193,7 +217,8 @@ export default function Heatmap({ submissions }: HeatmapProps) {
                 <button
                   key={y}
                   onClick={() => handleYearSelect(y)}
-                  className={`w-full text-left px-3 py-1.5 text-xs hover:bg-black/[0.04] transition-colors ${selectedYear === y ? "text-indigo-600 bg-indigo-50" : "text-muted-foreground"}`}
+                  className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${selectedYear === y ? "font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                  style={selectedYear === y ? { background: "var(--accent-soft)", color: "var(--accent-text)" } : {}}
                 >
                   {y}
                 </button>
@@ -207,17 +232,23 @@ export default function Heatmap({ submissions }: HeatmapProps) {
       <div className="rounded-lg p-3" ref={containerRef} style={{ background: "var(--heatmap-bg)" }}>
         <div className="flex justify-center">
           <div className="flex flex-col">
-            {/* month labels */}
-            <div className="flex mb-1" style={{ paddingLeft: DAY_COL_W + 8 }}>
-              {months.map((m, i) => (
-                <span
-                  key={i}
-                  className="text-[10px] text-zinc-400"
-                  style={{ position: "relative", left: `${m.col * (cellSize + GAP)}px` }}
-                >
-                  {m.label}
-                </span>
-              ))}
+            {/* month labels: GitHub 式,每个标签绝对定位到所属周的列 */}
+            <div
+              className="relative mb-1 h-4"
+              style={{ marginLeft: DAY_COL_W + 8, width: weeks.length * (cellSize + GAP) - GAP }}
+            >
+              {months
+                // 开头不足 3 周的残月标签会和下一个月挤在一起,直接不显示
+                .filter((m, i) => i === months.length - 1 || months[i + 1].col - m.col >= 3)
+                .map((m) => (
+                  <span
+                    key={`${m.label}-${m.col}`}
+                    className="absolute text-[10px] text-muted-foreground whitespace-nowrap"
+                    style={{ left: m.col * (cellSize + GAP) }}
+                  >
+                    {m.label}
+                  </span>
+                ))}
             </div>
 
             <div className="flex">
@@ -226,7 +257,7 @@ export default function Heatmap({ submissions }: HeatmapProps) {
                 {DAY_LABELS.map((day, i) => (
                   <div
                     key={i}
-                    style={{ width: DAY_COL_W + "px", height: cellSize + "px", lineHeight: cellSize + "px" }} className="text-[10px] text-zinc-400 text-right pr-1"
+                    style={{ width: DAY_COL_W + "px", height: cellSize + "px", lineHeight: cellSize + "px" }} className="text-[10px] text-muted-foreground text-right pr-1"
                   >
                     {day}
                   </div>
@@ -240,7 +271,7 @@ export default function Heatmap({ submissions }: HeatmapProps) {
                     {week.map((cell) => (
                       <div
                         key={cell.date}
-                        className="heatmap-cell rounded-[2px] cursor-pointer transition-colors hover:ring-1 hover:ring-zinc-300"
+                        className={`heatmap-cell rounded-[3px] transition-colors ${cell.count > 0 ? "cursor-pointer heatmap-cell-active" : ""}`}
                         style={{ width: cellSize + "px", height: cellSize + "px", background: getColor(cell.count) }}
                         onMouseEnter={(e) => handleMouseEnter(e, cell.date, cell.problems)}
                         onMouseLeave={() => { hideTimer.current = setTimeout(closeTooltip, 200); }}
@@ -255,11 +286,11 @@ export default function Heatmap({ submissions }: HeatmapProps) {
 
         {/* legend */}
         <div className="flex items-center gap-1 mt-2 justify-end">
-          <span className="text-[10px] text-zinc-400 mr-1">少</span>
+          <span className="text-[10px] text-muted-foreground mr-1">少</span>
           {COLORS.map((c, i) => (
-            <div key={i} className="rounded-[2px]" style={{ width: cellSize + "px", height: cellSize + "px", background: c }} />
+            <div key={i} className="rounded-[3px]" style={{ width: cellSize + "px", height: cellSize + "px", background: c }} />
           ))}
-          <span className="text-[10px] text-zinc-400 ml-1">多</span>
+          <span className="text-[10px] text-muted-foreground ml-1">多</span>
         </div>
       </div>
 
@@ -272,7 +303,7 @@ export default function Heatmap({ submissions }: HeatmapProps) {
             onMouseEnter={() => { hoveringTooltip.current = true; clearHide(); }}
             onMouseLeave={() => { hoveringTooltip.current = false; setHovered(null); }}
           >
-            <div className="bg-white border border-black/[0.1] rounded-lg px-3 py-2 shadow-lg text-xs w-72 pointer-events-auto">
+            <div className="rounded-lg px-3 py-2 shadow-lg text-xs w-72 pointer-events-auto" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
               <div className="text-muted-foreground mb-1">
                 {(() => {
                   const d = new Date(hovered.date + "T00:00:00");
@@ -288,7 +319,8 @@ export default function Heatmap({ submissions }: HeatmapProps) {
                       href={p.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-indigo-600 hover:text-indigo-800 hover:underline break-all leading-relaxed font-mono"
+                      className="block break-all leading-relaxed font-mono"
+                      style={{ color: "var(--accent-text)" }}
                     >
                       {p.name}{p.score ? ` (${p.score})` : ""}
                     </a>
