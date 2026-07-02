@@ -1,6 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import type { PlatformBuckets, SubmissionDay } from "@/lib/types";
 
 interface Props {
@@ -137,24 +146,21 @@ function buildTopTags(subs: PlatformBuckets<SubmissionDay[]>, limit = 10): { tag
 interface StreakStats { current: number; longest: number; activeDays: number; totalProblems: number; }
 
 function buildStreak(subs: PlatformBuckets<SubmissionDay[]>): StreakStats {
-  const dayCount = new Map<string, number>();
+  // 打卡口径与热力图一致:当天有任何提交即算活跃(不按题目去重——
+  // 否则重刷旧题的日子会被记为 0,连续天数被错误打断)
+  const activeSet = new Set<string>();
+  // 累计题数按题目去重
   const seen = new Set<string>();
   for (const platform of ["cf", "atc", "nc"] as Platform[]) {
-    for (const day of subs[platform]) {
+    for (const day of subs[platform] || []) {
       if (!day.problems.length) continue;
-      let added = 0;
-      for (const p of day.problems) {
-        const key = `${platform}#${p.id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        added++;
-      }
-      if (added > 0) dayCount.set(day.date, (dayCount.get(day.date) || 0) + added);
+      activeSet.add(day.date);
+      for (const p of day.problems) seen.add(`${platform}#${p.id}`);
     }
   }
-  const dates = Array.from(dayCount.keys()).sort();
+  const dates = Array.from(activeSet).sort();
   const activeDays = dates.length;
-  const totalProblems = Array.from(dayCount.values()).reduce((s, n) => s + n, 0);
+  const totalProblems = seen.size;
 
   if (activeDays === 0) return { current: 0, longest: 0, activeDays: 0, totalProblems: 0 };
 
@@ -168,11 +174,41 @@ function buildStreak(subs: PlatformBuckets<SubmissionDay[]>): StreakStats {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const probe = new Date(today);
-  if (!dayCount.has(fmt(probe))) probe.setDate(probe.getDate() - 1);
+  if (!activeSet.has(fmt(probe))) probe.setDate(probe.getDate() - 1);
   let current = 0;
-  while (dayCount.has(fmt(probe))) { current++; probe.setDate(probe.getDate() - 1); }
+  while (activeSet.has(fmt(probe))) { current++; probe.setDate(probe.getDate() - 1); }
 
   return { current, longest, activeDays, totalProblems };
+}
+
+/* ---------- 难度分布 Tooltip ---------- */
+
+function DifficultyTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: { dataKey?: string | number; value?: number | string }[];
+  label?: string | number;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const rows = (["cf", "atc", "nc"] as Platform[])
+    .map(p => ({ p, value: Number(payload.find(e => e.dataKey === p)?.value ?? 0) }))
+    .filter(r => r.value > 0);
+  const total = rows.reduce((s, r) => s + r.value, 0);
+  return (
+    <div className="rounded-lg px-3 py-2 shadow-lg text-xs" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+      <div className="text-muted-foreground mb-1">{label}</div>
+      {rows.map(r => (
+        <div key={r.p} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-sm" style={{ background: PLATFORM_COLOR[r.p] }} />
+          <span className="text-foreground/80">{PLATFORM_LABEL[r.p]}</span>
+          <span className="ml-auto tabular-nums text-foreground">{r.value}</span>
+        </div>
+      ))}
+      <div className="flex items-center gap-2 mt-1 pt-1" style={{ borderTop: "1px solid var(--surface-border)" }}>
+        <span className="text-muted-foreground">合计</span>
+        <span className="ml-auto tabular-nums font-semibold text-foreground">{total}</span>
+      </div>
+    </div>
+  );
 }
 
 /* ---------- Donut 圆环组件 ---------- */
@@ -229,7 +265,6 @@ export default function InsightCards({ subs }: Props) {
   const topTags = useMemo(() => buildTopTags(subs), [subs]);
   const streak = useMemo(() => buildStreak(subs), [subs]);
 
-  const maxDifficultyCount = Math.max(1, ...difficulty.map(r => r.total));
   const tagsTotal = topTags.reduce((s, t) => s + t.count, 0);
 
   return (
@@ -281,30 +316,28 @@ export default function InsightCards({ subs }: Props) {
             ))}
           </div>
         </div>
-        <div className="flex items-end gap-2 h-32">
-          {difficulty.map(row => {
-            const heightPct = (row.total / maxDifficultyCount) * 100;
-            return (
-              <div key={row.bucket} className="flex-1 flex flex-col items-center gap-1 group">
-                <div className="text-[10px] text-muted-foreground tabular-nums opacity-0 group-hover:opacity-100 transition-opacity">
-                  {row.total}
-                </div>
-                <div className="w-full flex flex-col-reverse rounded-t overflow-hidden" style={{ height: `${heightPct}%`, minHeight: row.total > 0 ? 2 : 0 }}>
-                  {(["cf", "atc", "nc"] as Platform[]).map(p => {
-                    const pct = row.total > 0 ? (row[p] / row.total) * 100 : 0;
-                    return (
-                      <div
-                        key={p}
-                        style={{ background: PLATFORM_COLOR[p], height: `${pct}%` }}
-                        title={`${PLATFORM_LABEL[p]} ${row.bucket}: ${row[p]}`}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="text-[9.5px] text-muted-foreground whitespace-nowrap">{row.bucket}</div>
-              </div>
-            );
-          })}
+        <div className="h-44">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={difficulty} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barCategoryGap="28%">
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" vertical={false} />
+              <XAxis
+                dataKey="bucket"
+                tick={{ fontSize: 10, fill: "#71717a" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#71717a" }}
+                axisLine={false}
+                tickLine={false}
+                allowDecimals={false}
+              />
+              <Tooltip content={<DifficultyTooltip />} cursor={{ fill: "var(--surface-bg)" }} />
+              <Bar dataKey="cf" stackId="d" fill={PLATFORM_COLOR.cf} />
+              <Bar dataKey="atc" stackId="d" fill={PLATFORM_COLOR.atc} />
+              <Bar dataKey="nc" stackId="d" fill={PLATFORM_COLOR.nc} radius={[3, 3, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>

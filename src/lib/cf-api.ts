@@ -43,12 +43,14 @@ interface CFContestRaw {
 export interface CFContestHistoryEntry {
   date: string;
   contestName: string;
+  contestUrl: string;
   rank: number;
   oldRating: number;
   newRating: number;
 }
 
 interface CFRatingUpdateRaw {
+  contestId: number;
   contestName: string;
   rank: number;
   oldRating: number;
@@ -120,6 +122,7 @@ export async function fetchCFContestHistory(handle: string): Promise<CFContestHi
     return data.result.map((item: CFRatingUpdateRaw) => ({
       date: new Date(item.ratingUpdateTimeSeconds * 1000).toISOString().slice(0, 10),
       contestName: item.contestName,
+      contestUrl: `https://codeforces.com/contest/${item.contestId}`,
       rank: item.rank,
       oldRating: item.oldRating,
       newRating: item.newRating,

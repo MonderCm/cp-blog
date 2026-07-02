@@ -26,6 +26,7 @@ export interface AtCRatingResult {
 export interface AtCContestHistoryEntry {
   date: string;
   contestName: string;
+  contestUrl: string;
   rank: number;
   oldRating: number;
   newRating: number;
@@ -44,13 +45,17 @@ export async function fetchAtCContestHistory(handle: string): Promise<AtCContest
     if (!Array.isArray(historyRaw)) return [];
     const typed = (historyRaw as AtCHistoryEntry[]).filter((h) => h.IsRated && typeof h.NewRating === "number");
     if (typed.length === 0) return [];
-    return typed.map((h, i) => ({
-      date: h.EndTime.slice(0, 10).replace(/\//g, "-"),
-      contestName: h.ContestNameEn || h.ContestName || h.ContestScreenName || "",
-      rank: 0,
-      oldRating: i > 0 ? (typed[i - 1].NewRating || 0) : 0,
-      newRating: h.NewRating || 0,
-    }));
+    return typed.map((h, i) => {
+      const contestId = (h.ContestScreenName || "").replace(".contest.atcoder.jp", "");
+      return {
+        date: h.EndTime.slice(0, 10).replace(/\//g, "-"),
+        contestName: h.ContestNameEn || h.ContestName || h.ContestScreenName || "",
+        contestUrl: contestId ? `${ATC_BASE}/contests/${contestId}` : "",
+        rank: 0,
+        oldRating: i > 0 ? (typed[i - 1].NewRating || 0) : 0,
+        newRating: h.NewRating || 0,
+      };
+    });
   } catch {
     return [];
   }
