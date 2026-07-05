@@ -86,8 +86,8 @@ export default function DesktopPet({ todaySolved }: DesktopPetProps) {
   const [currentName, setCurrentName] = useState<string>("");
   const [ready, setReady] = useState(false);
   /** 左侧功能区当前展开的面板 */
-  const [panel, setPanel] = useState<null | "chars" | "import" | "expr" | "settings">(null);
-  /** 位置锁定:锁定后不可拖动(点击互动不受影响);右键桌宠快捷切换 */
+  const [panel, setPanel] = useState<null | "chars" | "import" | "settings">(null);
+  /** 锁定:锁定后不可拖动、不可滚轮缩放(点击互动不受影响);右键桌宠快捷切换 */
   const [locked, setLocked] = useState<boolean>(() => {
     try { return localStorage.getItem(LOCKED_KEY) === "1"; } catch { return false; }
   });
@@ -195,8 +195,9 @@ export default function DesktopPet({ todaySolved }: DesktopPetProps) {
     }
   };
 
-  /* ---- 滚轮缩放 ---- */
+  /* ---- 滚轮缩放(锁定时同样禁用) ---- */
   const onWheel = (e: React.WheelEvent) => {
+    if (locked) return;
     setTransform((t) => {
       const next = clampTransform({ ...t, scale: t.scale * (e.deltaY < 0 ? 1.08 : 0.92) }, aspectRef.current);
       saveTransform(next);
@@ -267,7 +268,7 @@ export default function DesktopPet({ todaySolved }: DesktopPetProps) {
     setLocked((v) => {
       const next = !v;
       try { localStorage.setItem(LOCKED_KEY, next ? "1" : "0"); } catch { /* ignore */ }
-      setMessage({ text: next ? "位置已锁定(右键解锁)" : "位置已解锁", ts: Date.now() });
+      setMessage({ text: next ? "位置和大小已锁定(右键解锁)" : "位置和大小已解锁", ts: Date.now() });
       return next;
     });
   }, []);
@@ -308,8 +309,7 @@ export default function DesktopPet({ todaySolved }: DesktopPetProps) {
       >
         <ToolButton icon="👤" title="更换角色" active={panel === "chars"} onClick={() => setPanel(panel === "chars" ? null : "chars")} />
         <ToolButton icon="📥" title="导入模型(zip)" active={panel === "import"} onClick={() => setPanel(panel === "import" ? null : "import")} />
-        <ToolButton icon="😊" title="表情互动" active={panel === "expr"} onClick={() => setPanel(panel === "expr" ? null : "expr")} />
-        <ToolButton icon="⚙" title="位置与设置" active={panel === "settings"} onClick={() => setPanel(panel === "settings" ? null : "settings")} />
+        <ToolButton icon="⚙" title="设置" active={panel === "settings"} onClick={() => setPanel(panel === "settings" ? null : "settings")} />
       </div>
 
       {/* 面板弹层:开在功能条更左侧 */}
@@ -354,28 +354,9 @@ export default function DesktopPet({ todaySolved }: DesktopPetProps) {
             </div>
           )}
 
-          {panel === "expr" && (
-            <>
-              <div className="px-3 py-1 text-[10px] text-muted-foreground">表情互动</div>
-              {expressions.length === 0 ? (
-                <div className="px-3 py-1.5 text-foreground/50">当前模型没有表情</div>
-              ) : (
-                expressions.map((name) => (
-                  <button
-                    key={name}
-                    onClick={() => handleExpression(name)}
-                    className="w-full text-left px-3 py-1.5 text-foreground/70 transition-colors hover:bg-[var(--surface-bg)]"
-                  >
-                    {name}
-                  </button>
-                ))
-              )}
-            </>
-          )}
-
           {panel === "settings" && (
             <div className="px-3 py-2 space-y-2">
-              <div className="text-[10px] text-muted-foreground">位置与设置</div>
+              <div className="text-[10px] text-muted-foreground">设置</div>
               <div className="text-[10px] text-foreground/60 tabular-nums leading-relaxed">
                 坐标 ({Math.round(transform.x)}, {Math.round(transform.y)})<br />
                 缩放 {transform.scale.toFixed(2)}x
@@ -385,7 +366,7 @@ export default function DesktopPet({ todaySolved }: DesktopPetProps) {
                 className="w-full px-3 py-1.5 rounded-md text-left transition-colors hover:bg-[var(--surface-bg)]"
                 style={locked ? { background: "var(--accent-soft)", color: "var(--accent-text)" } : { color: "var(--foreground)" }}
               >
-                {locked ? "🔒 已锁定(点击解锁)" : "🔓 锁定位置"}
+                {locked ? "🔒 已锁定(点击解锁)" : "🔓 锁定位置与大小"}
               </button>
               <button
                 onClick={handleSavePosition}
@@ -402,6 +383,22 @@ export default function DesktopPet({ todaySolved }: DesktopPetProps) {
               <p className="text-[9px] leading-relaxed text-muted-foreground/70">
                 提示:在桌宠上点右键可快捷锁定/解锁
               </p>
+              <div className="pt-1 border-t" style={{ borderColor: "var(--card-border)" }}>
+                <div className="text-[10px] text-muted-foreground py-1">表情互动</div>
+                {expressions.length === 0 ? (
+                  <div className="py-1 text-foreground/50">当前模型没有表情</div>
+                ) : (
+                  expressions.map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => handleExpression(name)}
+                      className="w-full text-left px-2 py-1.5 rounded-md text-foreground/70 transition-colors hover:bg-[var(--surface-bg)]"
+                    >
+                      {name}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
