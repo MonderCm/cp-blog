@@ -36,6 +36,16 @@ export function isValidSlug(slug: string): boolean {
   return SLUG_RE.test(slug);
 }
 
+/** 随机 12 位 slug——访客空间的唯一标识,不可枚举 */
+export function generateSlug(): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let slug = "";
+  for (let i = 0; i < 12; i++) {
+    slug += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return slug;
+}
+
 /** 把任意字符串规范化成合法 slug,失败返回 null */
 export function normalizeSlug(raw: string): string | null {
   const s = raw.trim().toLowerCase()

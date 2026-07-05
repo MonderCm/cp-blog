@@ -3,6 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 import { isValidSlug } from "@/lib/profile";
+import { getVisitorSlug } from "@/lib/visitor";
 
 const UPLOAD_DIR = join(process.cwd(), "public", "uploads", "avatars");
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
     }
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "slug required" }, { status: 400 });
+    }
+    if (slug !== (await getVisitorSlug())) {
+      return NextResponse.json({ error: "只能修改自己的空间" }, { status: 403 });
     }
 
     const safeExt = ALLOWED_TYPES.get(file.type);

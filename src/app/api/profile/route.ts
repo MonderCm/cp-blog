@@ -5,21 +5,13 @@ import {
   isValidSlug,
   PROFILE_FIELD_DEFAULTS,
 } from "@/lib/profile";
+import { getVisitorSlug } from "@/lib/visitor";
 
 /**
  * GET    /api/profile?slug=xxx   读取用户资料
- * POST   /api/profile            创建/更新用户（无 slug 时自动生成）
- * DELETE /api/profile?slug=xxx   删除用户及关联数据
+ * POST   /api/profile            更新自己的资料(cookie 所有权校验)
+ * DELETE /api/profile?slug=xxx   删除自己的空间(cookie 所有权校验)
  */
-
-function generateSlug(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let slug = "";
-  for (let i = 0; i < 12; i++) {
-    slug += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return slug;
-}
 
 export async function GET(request: NextRequest) {
   const slug = request.nextUrl.searchParams.get("slug");
@@ -45,12 +37,13 @@ export async function POST(request: NextRequest) {
       ncHandle: string;
     }>;
 
-    // 编辑已有用户时传 slug; 新建时不传，自动生成
-    let slug = typeof body.slug === "string" ? body.slug.trim().toLowerCase() : "";
-    const existing = slug ? await prisma.user.findUnique({ where: { slug } }) : null;
-
-    if (!existing) {
-      slug = generateSlug();
+    const slug = typeof body.slug === "string" ? body.slug.trim().toLowerCase() : "";
+    const visitor = await getVisitorSlug();
+    if (!slug || !isValidSlug(slug)) {
+      return NextResponse.json({ error: "slug required" }, { status: 400 });
+    }
+    if (slug !== visitor) {
+      return NextResponse.json({ error: "只能修改自己的空间" }, { status: 403 });
     }
 
     const patch: Record<string, string> = {};
@@ -90,6 +83,9 @@ export async function DELETE(request: NextRequest) {
     const slug = request.nextUrl.searchParams.get("slug");
     if (!slug || !isValidSlug(slug)) {
       return NextResponse.json({ error: "slug required" }, { status: 400 });
+    }
+    if (slug !== (await getVisitorSlug())) {
+      return NextResponse.json({ error: "只能删除自己的空间" }, { status: 403 });
     }
 
     const user = await prisma.user.findUnique({ where: { slug } });
