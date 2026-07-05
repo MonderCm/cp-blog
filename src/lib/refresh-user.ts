@@ -52,33 +52,38 @@ export async function refreshUserRating(
 
   const patch: Record<string, number | string | Date> = { updatedAt: new Date() };
 
-  if (cfHandle && cfR.status === "fulfilled" && cfR.value) {
+  // fetch*Rating 失败时返回全 0 的空结果而不是抛错;把它当失败处理,
+  // 避免瞬时抓取失败把库里已有的真实分数覆盖成 0
+  const isEmpty = (v: { rating: number; maxRating: number } | null) =>
+    !v || (v.rating === 0 && v.maxRating === 0);
+
+  if (cfHandle && cfR.status === "fulfilled" && cfR.value && !isEmpty(cfR.value)) {
     patch.cfRating = cfR.value.rating;
     patch.cfRank = cfR.value.rank;
     patch.cfMaxRating = cfR.value.maxRating;
     patch.cfMaxRank = cfR.value.maxRank;
     result.updated.push("CF");
-  } else if (cfHandle && cfR.status === "rejected") {
+  } else if (cfHandle) {
     result.failed.push("CF");
   }
 
-  if (atcHandle && atcR.status === "fulfilled" && atcR.value) {
+  if (atcHandle && atcR.status === "fulfilled" && atcR.value && !isEmpty(atcR.value)) {
     patch.atcRating = atcR.value.rating;
     patch.atcRank = atcR.value.rank;
     patch.atcMaxRating = atcR.value.maxRating;
     patch.atcMaxRank = atcR.value.maxRank;
     result.updated.push("AtC");
-  } else if (atcHandle && atcR.status === "rejected") {
+  } else if (atcHandle) {
     result.failed.push("AtC");
   }
 
-  if (ncHandle && ncR.status === "fulfilled" && ncR.value) {
+  if (ncHandle && ncR.status === "fulfilled" && ncR.value && !isEmpty(ncR.value)) {
     patch.ncRating = ncR.value.rating;
     patch.ncRank = ncR.value.rank;
     patch.ncMaxRating = ncR.value.maxRating;
     patch.ncMaxRank = ncR.value.maxRank;
     result.updated.push("NC");
-  } else if (ncHandle && ncR.status === "rejected") {
+  } else if (ncHandle) {
     result.failed.push("NC");
   }
 
