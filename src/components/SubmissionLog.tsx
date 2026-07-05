@@ -231,40 +231,56 @@ export default function SubmissionLog({
           本人
         </button>
         {watchTargets.map((t) => (
-          <div key={t.id} className="flex items-center">
-            <button
-              onClick={() => setPerson(t.id)}
-              className={`px-3 py-1 text-xs rounded-full transition-all ${person === t.id ? "shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
-              style={person === t.id
-                ? { background: "var(--accent-soft)", color: "var(--accent-text)", border: "1px solid var(--accent)" }
-                : { border: "1px dashed var(--card-border)" }}
-              title={[t.cfHandle && `CF: ${t.cfHandle}`, t.atcHandle && `AtC: ${t.atcHandle}`].filter(Boolean).join("  ")}
-            >
-              {t.nickname}
-            </button>
-            <button
-              onClick={() => handleDeleteTarget(t.id)}
-              className="ml-0.5 px-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
-              title="删除"
-            >
-              ×
-            </button>
-          </div>
+          <button
+            key={t.id}
+            onClick={() => setPerson(t.id)}
+            className={`px-3 py-1 text-xs rounded-full transition-all ${person === t.id ? "shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+            style={person === t.id
+              ? { background: "var(--accent-soft)", color: "var(--accent-text)", border: "1px solid var(--accent)" }
+              : { border: "1px dashed var(--card-border)" }}
+            title={[t.cfHandle && `CF: ${t.cfHandle}`, t.atcHandle && `AtC: ${t.atcHandle}`].filter(Boolean).join("  ")}
+          >
+            {t.nickname}
+          </button>
         ))}
         <button
           onClick={() => setShowAddBox((v) => !v)}
           className="px-2.5 py-1 text-xs rounded-full text-muted-foreground hover:text-foreground transition-all"
-          style={{ border: "1px dashed var(--card-border)" }}
-          title="添加视奸对象"
+          style={showAddBox
+            ? { border: "1px solid var(--accent)", background: "var(--accent-soft)", color: "var(--accent-text)" }
+            : { border: "1px dashed var(--card-border)" }}
+          title="管理视奸名单"
         >
-          +
+          管理
         </button>
       </div>
 
-      {/* ===== 添加视奸对象:内联展开 ===== */}
+      {/* ===== 视奸名单管理:列表(删除)+ 添加表单 ===== */}
       {showAddBox && (
         <div className="rounded-lg p-4 mb-4 space-y-2 surface" style={{ border: "1px solid var(--card-border)" }}>
-          <div className="text-xs font-medium">添加视奸对象</div>
+          <div className="text-xs font-medium">视奸名单</div>
+          {watchTargets.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-1">还没有视奸对象,在下面添加一个</div>
+          ) : (
+            <div className="space-y-1">
+              {watchTargets.map((t) => (
+                <div key={t.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md" style={{ background: "var(--surface-bg)" }}>
+                  <span className="text-xs font-medium">{t.nickname}</span>
+                  <span className="text-[10px] text-muted-foreground font-mono truncate">
+                    {[t.cfHandle && `CF:${t.cfHandle}`, t.atcHandle && `AtC:${t.atcHandle}`].filter(Boolean).join(" · ")}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteTarget(t.id)}
+                    className="ml-auto px-2 py-0.5 text-[10px] rounded text-muted-foreground hover:text-red-400 transition-colors shrink-0"
+                    style={{ border: "1px solid var(--card-border)" }}
+                  >
+                    删除
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="text-xs font-medium pt-2" style={{ borderTop: "1px solid var(--card-border)" }}>添加视奸对象</div>
           <input
             placeholder="备注名(如:卷王A)"
             value={newTarget.nickname}
@@ -289,7 +305,7 @@ export default function SubmissionLog({
           {addError && <div className="text-xs text-red-400">{addError}</div>}
           <div className="flex gap-2 justify-end pt-1">
             <button onClick={() => { setShowAddBox(false); setAddError(""); }} className="px-3 py-1 text-xs rounded-md text-muted-foreground hover:text-foreground">
-              取消
+              关闭
             </button>
             <button
               onClick={handleAddTarget}
