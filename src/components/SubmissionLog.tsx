@@ -245,7 +245,7 @@ export default function SubmissionLog({
         ))}
         <button
           onClick={() => setShowAddBox((v) => !v)}
-          className="px-2.5 py-1 text-xs rounded-full text-muted-foreground hover:text-foreground transition-all"
+          className="ml-auto px-2.5 py-1 text-xs rounded-full text-muted-foreground hover:text-foreground transition-all"
           style={showAddBox
             ? { border: "1px solid var(--accent)", background: "var(--accent-soft)", color: "var(--accent-text)" }
             : { border: "1px dashed var(--card-border)" }}
