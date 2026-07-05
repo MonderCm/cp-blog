@@ -43,8 +43,23 @@ model User {
   updatedAt    DateTime      @updatedAt
   ratingPoints RatingPoint[]
   submissions  Submission[]
+  watchTargets WatchTarget[]
 
   @@index([cfHandle])
+}
+
+// 视奸对象:某用户关注的别人家 handle(学习记录页人员行)
+model WatchTarget {
+  id        String   @id @default(cuid())
+  userId    String
+  nickname  String   @default("匿名")
+  cfHandle  String   @default("")
+  atcHandle String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model RatingPoint {

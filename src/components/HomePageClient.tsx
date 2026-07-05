@@ -387,7 +387,7 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
           )}
 
           {view === "submissions" && (
-            <SubmissionLog cfSubmissions={subs.cf} atcSubmissions={subs.atc} ncSubmissions={subs.nc} />
+            <SubmissionLog cfSubmissions={subs.cf} atcSubmissions={subs.atc} ncSubmissions={subs.nc} slug={slug} />
           )}
 
           {view === "contests" && (

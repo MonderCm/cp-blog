@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import type { WatchTarget } from "@/lib/types";
 
 function formatDate(dateStr: string): { dayNum: number; label: string } {
   const dateObj = new Date(dateStr + "T00:00:00");
@@ -30,6 +31,8 @@ interface SubmissionLogProps {
   cfSubmissions: DayEntry[];
   atcSubmissions: DayEntry[];
   ncSubmissions: DayEntry[];
+  /** 当前页面用户 slug;视奸对象增删查都挂在它名下 */
+  slug: string;
 }
 
 /** 把原始 verdict 归一化成 AC / TLE / WA / RE / MLE / CE / PE / OLE / 其他短码 */
@@ -73,24 +76,92 @@ export default function SubmissionLog({
   cfSubmissions,
   atcSubmissions,
   ncSubmissions,
+  slug,
 }: SubmissionLogProps) {
   const [filter, setFilter] = useState<"all" | "cf" | "atc" | "nc">("all");
   const [visibleDays, setVisibleDays] = useState(14);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  /* ---- 视奸:人员行状态 ---- */
+  const [watchTargets, setWatchTargets] = useState<WatchTarget[]>([]);
+  /** "self" = 本人;否则为 watchTarget.id */
+  const [person, setPerson] = useState<"self" | string>("self");
+  const [showAddBox, setShowAddBox] = useState(false);
+  const [newTarget, setNewTarget] = useState({ nickname: "", cfHandle: "", atcHandle: "" });
+  const [addError, setAddError] = useState("");
+  const [targetSubs, setTargetSubs] = useState<{ cf: DayEntry[]; atc: DayEntry[]; nc: DayEntry[] } | null>(null);
+  const [targetLoading, setTargetLoading] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/watch-targets?slug=${slug}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: WatchTarget[]) => setWatchTargets(Array.isArray(list) ? list : []))
+      .catch(() => {});
+  }, [slug]);
+
+  /* 切人 → 换数据源;切走再切回会重拉(服务端有 5min 缓存,不贵) */
+  useEffect(() => {
+    if (person === "self") { setTargetSubs(null); return; }
+    let cancelled = false;
+    setTargetLoading(true);
+    setTargetSubs(null);
+    setVisibleDays(14);
+    fetch(`/api/watch-targets/submissions?slug=${slug}&targetId=${person}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setTargetSubs({ cf: data.cf ?? [], atc: data.atc ?? [], nc: data.nc ?? [] });
+      })
+      .catch(() => { if (!cancelled) setTargetSubs({ cf: [], atc: [], nc: [] }); })
+      .finally(() => { if (!cancelled) setTargetLoading(false); });
+    return () => { cancelled = true; };
+  }, [person, slug]);
+
+  const handleAddTarget = async () => {
+    const nickname = newTarget.nickname.trim();
+    if (!nickname) { setAddError("备注名不能为空"); return; }
+    if (!newTarget.cfHandle.trim() && !newTarget.atcHandle.trim()) { setAddError("至少填一个平台 handle"); return; }
+    setAddError("");
+    const res = await fetch("/api/watch-targets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, ...newTarget, nickname }),
+    });
+    const created = await res.json();
+    if (!res.ok) { setAddError(created.error || "添加失败"); return; }
+    setWatchTargets((prev) => [...prev, created]);
+    setNewTarget({ nickname: "", cfHandle: "", atcHandle: "" });
+    setShowAddBox(false);
+    setPerson(created.id);
+  };
+
+  const handleDeleteTarget = async (id: string) => {
+    await fetch("/api/watch-targets", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, id }),
+    }).catch(() => {});
+    setWatchTargets((prev) => prev.filter((t) => t.id !== id));
+    if (person === id) setPerson("self");
+  };
+
+  /* 数据源:本人用 props,视奸对象用实时拉取结果 */
+  const active = person === "self"
+    ? { cf: cfSubmissions, atc: atcSubmissions, nc: ncSubmissions }
+    : targetSubs ?? { cf: [], atc: [], nc: [] };
+
   const all = useMemo(() => {
     const entries: (Problem & { platform: string; date: string })[] = [];
-    for (const d of cfSubmissions) {
+    for (const d of active.cf) {
       for (const p of d.problems) entries.push({ ...p, platform: "CF", date: d.date });
     }
-    for (const d of atcSubmissions) {
+    for (const d of active.atc) {
       for (const p of d.problems) entries.push({ ...p, platform: "AtC", date: d.date });
     }
-    for (const d of ncSubmissions) {
+    for (const d of active.nc) {
       for (const p of d.problems) entries.push({ ...p, platform: "NC", date: d.date });
     }
     return entries;
-  }, [cfSubmissions, atcSubmissions, ncSubmissions]);
+  }, [active.cf, active.atc, active.nc]);
 
   /** 同一道题去重:同 platform+id 只保留一条;优先 AC,其次最新 */
   const dedup = useMemo(() => {
@@ -148,6 +219,89 @@ export default function SubmissionLog({
 
   return (
     <div className="card p-6">
+      {/* ===== 人员行:本人 / 视奸对象们 / + ===== */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <button
+          onClick={() => setPerson("self")}
+          className={`px-3 py-1 text-xs rounded-full transition-all ${person === "self" ? "shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+          style={person === "self"
+            ? { background: "var(--accent-soft)", color: "var(--accent-text)", border: "1px solid var(--accent)" }
+            : { border: "1px solid var(--card-border)" }}
+        >
+          本人
+        </button>
+        {watchTargets.map((t) => (
+          <div key={t.id} className="flex items-center">
+            <button
+              onClick={() => setPerson(t.id)}
+              className={`px-3 py-1 text-xs rounded-full transition-all ${person === t.id ? "shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"}`}
+              style={person === t.id
+                ? { background: "var(--accent-soft)", color: "var(--accent-text)", border: "1px solid var(--accent)" }
+                : { border: "1px dashed var(--card-border)" }}
+              title={[t.cfHandle && `CF: ${t.cfHandle}`, t.atcHandle && `AtC: ${t.atcHandle}`].filter(Boolean).join("  ")}
+            >
+              {t.nickname}
+            </button>
+            <button
+              onClick={() => handleDeleteTarget(t.id)}
+              className="ml-0.5 px-1 text-xs text-muted-foreground hover:text-red-400 transition-colors"
+              title="删除"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button
+          onClick={() => setShowAddBox((v) => !v)}
+          className="px-2.5 py-1 text-xs rounded-full text-muted-foreground hover:text-foreground transition-all"
+          style={{ border: "1px dashed var(--card-border)" }}
+          title="添加视奸对象"
+        >
+          +
+        </button>
+      </div>
+
+      {/* ===== 添加视奸对象:内联展开 ===== */}
+      {showAddBox && (
+        <div className="rounded-lg p-4 mb-4 space-y-2 surface" style={{ border: "1px solid var(--card-border)" }}>
+          <div className="text-xs font-medium">添加视奸对象</div>
+          <input
+            placeholder="备注名(如:卷王A)"
+            value={newTarget.nickname}
+            onChange={(e) => setNewTarget({ ...newTarget, nickname: e.target.value })}
+            className="w-full px-3 py-1.5 text-xs rounded-md bg-transparent outline-none"
+            style={{ border: "1px solid var(--card-border)" }}
+          />
+          <input
+            placeholder="Codeforces handle"
+            value={newTarget.cfHandle}
+            onChange={(e) => setNewTarget({ ...newTarget, cfHandle: e.target.value })}
+            className="w-full px-3 py-1.5 text-xs rounded-md bg-transparent outline-none font-mono"
+            style={{ border: "1px solid var(--card-border)" }}
+          />
+          <input
+            placeholder="AtCoder handle"
+            value={newTarget.atcHandle}
+            onChange={(e) => setNewTarget({ ...newTarget, atcHandle: e.target.value })}
+            className="w-full px-3 py-1.5 text-xs rounded-md bg-transparent outline-none font-mono"
+            style={{ border: "1px solid var(--card-border)" }}
+          />
+          {addError && <div className="text-xs text-red-400">{addError}</div>}
+          <div className="flex gap-2 justify-end pt-1">
+            <button onClick={() => { setShowAddBox(false); setAddError(""); }} className="px-3 py-1 text-xs rounded-md text-muted-foreground hover:text-foreground">
+              取消
+            </button>
+            <button
+              onClick={handleAddTarget}
+              className="px-3 py-1 text-xs rounded-md"
+              style={{ background: "var(--accent-soft)", color: "var(--accent-text)" }}
+            >
+              添加
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-5">
         <div className="flex gap-1 rounded-lg p-1" style={{ background: "var(--surface-bg)" }}>
           {(["all", "cf", "atc", "nc"] as const).map((f) => (
@@ -233,7 +387,11 @@ export default function SubmissionLog({
 
         {visibleGrouped.length === 0 && (
           <div className="text-center text-muted-foreground py-8 text-sm">
-            暂无做题记录
+            {targetLoading ? (
+              <span className="inline-block w-4 h-4 border-2 rounded-full animate-spin align-middle" style={{ borderColor: "var(--accent-soft)", borderTopColor: "var(--accent)" }} />
+            ) : (
+              "暂无做题记录"
+            )}
           </div>
         )}
       </div>

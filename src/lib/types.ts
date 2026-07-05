@@ -41,3 +41,11 @@ export interface PlatformBuckets<T> {
   atc: T;
   nc: T;
 }
+
+/** 视奸对象(学习记录页人员行) */
+export interface WatchTarget {
+  id: string;
+  nickname: string;
+  cfHandle: string;
+  atcHandle: string;
+}
