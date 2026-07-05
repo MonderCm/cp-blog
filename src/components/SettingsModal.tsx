@@ -147,15 +147,6 @@ export default function SettingsModal({
                       />
                     </Field>
 
-                    <Field label="个人简介">
-                      <input
-                        type="text"
-                        value={form.bio}
-                        onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                        className="modal-input"
-                      />
-                    </Field>
-
                     <Field label="个性签名">
                       <input
                         type="text"

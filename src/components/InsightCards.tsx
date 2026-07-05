@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -17,13 +18,6 @@ interface Props {
 }
 
 type Platform = "cf" | "atc" | "nc";
-
-const PLATFORM_COLOR: Record<Platform, string> = {
-  cf:  "#6366f1", // 靛蓝
-  atc: "#10b981", // 翠绿
-  nc:  "#f59e0b", // 琥珀
-};
-const PLATFORM_LABEL: Record<Platform, string> = { cf: "CF", atc: "ATC", nc: "NC" };
 
 /* ---------- 算法标签英 -> 中映射 ---------- */
 const TAG_ZH: Record<string, string> = {
@@ -82,37 +76,62 @@ function colorOf(tag: string) {
   return TAG_PALETTE[Math.abs(h) % TAG_PALETTE.length];
 }
 
-/* ---------- D1: 难度分布 ---------- */
+/* ---------- D1: 难度分布(CF Practice 的 Solve Count By Ratings 样式) ---------- */
 
 interface DifficultyRow {
-  bucket: string;
-  cf: number; atc: number; nc: number; total: number;
+  bucket: number;   // 桶下界,如 800、900
+  solved: number;   // AC 过的题
+  attempted: number; // 交过但从未 AC 的题
 }
-const BUCKETS = [
-  { label: "<800", lo: 0, hi: 799 },
-  { label: "800-1199", lo: 800, hi: 1199 },
-  { label: "1200-1599", lo: 1200, hi: 1599 },
-  { label: "1600-1999", lo: 1600, hi: 1999 },
-  { label: "2000-2399", lo: 2000, hi: 2399 },
-  { label: "2400+", lo: 2400, hi: Infinity },
-];
+
+/* CF 段位色,按桶难度上色(与官网 rating graph 一致) */
+function getBucketColor(r: number): string {
+  if (r < 1200) return "#aaaaaa";
+  if (r < 1400) return "#77dd77";
+  if (r < 1600) return "#77ddbb";
+  if (r < 1900) return "#7799ff";
+  if (r < 2100) return "#cc88ff";
+  if (r < 2300) return "#ffcc88";
+  if (r < 2400) return "#ffbb55";
+  if (r < 2600) return "#ff7777";
+  if (r < 3000) return "#ff3333";
+  return "#aa0000";
+}
+
+const ATTEMPTED_COLOR = "#f9c4d0";
 
 function buildDifficulty(subs: PlatformBuckets<SubmissionDay[]>): DifficultyRow[] {
-  const rows: DifficultyRow[] = BUCKETS.map(b => ({ bucket: b.label, cf: 0, atc: 0, nc: 0, total: 0 }));
-  const seen = new Set<string>();
-  (Object.keys(subs) as Platform[]).forEach(platform => {
-    for (const day of subs[platform]) {
+  // 先按题目聚合:一题只算一次,任意一次 AC 即 Solved,否则 Attempted
+  const status = new Map<string, { score: number; solved: boolean }>();
+  for (const platform of ["cf", "atc", "nc"] as Platform[]) {
+    for (const day of subs[platform] || []) {
       for (const p of day.problems) {
-        const key = `${platform}#${p.id}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
         const score = p.score || 0;
         if (score <= 0) continue;
-        const idx = BUCKETS.findIndex(b => score >= b.lo && score <= b.hi);
-        if (idx >= 0) { rows[idx][platform] += 1; rows[idx].total += 1; }
+        const key = `${platform}#${p.id}`;
+        const cur = status.get(key) || { score, solved: false };
+        if (p.verdict === "AC" || p.verdict === "OK") cur.solved = true;
+        status.set(key, cur);
       }
     }
-  });
+  }
+  if (status.size === 0) return [];
+
+  // 100 分一桶,范围取数据实际跨度(整百对齐)
+  const counter = new Map<number, { solved: number; attempted: number }>();
+  for (const { score, solved } of status.values()) {
+    const b = Math.floor(score / 100) * 100;
+    const c = counter.get(b) || { solved: 0, attempted: 0 };
+    if (solved) c.solved++; else c.attempted++;
+    counter.set(b, c);
+  }
+  const buckets = Array.from(counter.keys());
+  const lo = Math.min(...buckets), hi = Math.max(...buckets);
+  const rows: DifficultyRow[] = [];
+  for (let b = lo; b <= hi; b += 100) {
+    const c = counter.get(b);
+    rows.push({ bucket: b, solved: c?.solved ?? 0, attempted: c?.attempted ?? 0 });
+  }
   return rows;
 }
 
@@ -189,24 +208,23 @@ function DifficultyTooltip({ active, payload, label }: {
   label?: string | number;
 }) {
   if (!active || !payload || payload.length === 0) return null;
-  const rows = (["cf", "atc", "nc"] as Platform[])
-    .map(p => ({ p, value: Number(payload.find(e => e.dataKey === p)?.value ?? 0) }))
-    .filter(r => r.value > 0);
-  const total = rows.reduce((s, r) => s + r.value, 0);
+  const solved = Number(payload.find(e => e.dataKey === "solved")?.value ?? 0);
+  const attempted = Number(payload.find(e => e.dataKey === "attempted")?.value ?? 0);
   return (
     <div className="rounded-lg px-3 py-2 shadow-lg text-xs" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
-      <div className="text-muted-foreground mb-1">{label}</div>
-      {rows.map(r => (
-        <div key={r.p} className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-sm" style={{ background: PLATFORM_COLOR[r.p] }} />
-          <span className="text-foreground/80">{PLATFORM_LABEL[r.p]}</span>
-          <span className="ml-auto tabular-nums text-foreground">{r.value}</span>
-        </div>
-      ))}
-      <div className="flex items-center gap-2 mt-1 pt-1" style={{ borderTop: "1px solid var(--surface-border)" }}>
-        <span className="text-muted-foreground">合计</span>
-        <span className="ml-auto tabular-nums font-semibold text-foreground">{total}</span>
+      <div className="text-muted-foreground mb-1">难度 {label}</div>
+      <div className="flex items-center gap-2">
+        <span className="w-2 h-2 rounded-sm" style={{ background: getBucketColor(Number(label)) }} />
+        <span className="text-foreground/80">Solved</span>
+        <span className="ml-auto tabular-nums font-semibold text-foreground">{solved}</span>
       </div>
+      {attempted > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-sm" style={{ background: ATTEMPTED_COLOR }} />
+          <span className="text-foreground/80">Attempted</span>
+          <span className="ml-auto tabular-nums text-foreground">{attempted}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -303,26 +321,29 @@ export default function InsightCards({ subs }: Props) {
         </div>
       </div>
 
-      {/* 难度分布 */}
+      {/* 难度分布(CF Practice 样式:100 分一桶,桶色随段位,Attempted 粉色叠顶) */}
       <div className="card p-5 md:col-span-2">
         <div className="flex items-center justify-between mb-3">
           <div className="text-xs text-muted-foreground">题目难度分布</div>
           <div className="flex gap-3 text-[10px] text-muted-foreground">
-            {(["cf", "atc", "nc"] as Platform[]).map(p => (
-              <span key={p} className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-sm" style={{ background: PLATFORM_COLOR[p] }} />
-                {PLATFORM_LABEL[p]}
-              </span>
-            ))}
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm" style={{ background: "#aaaaaa" }} />
+              Solved
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm" style={{ background: ATTEMPTED_COLOR }} />
+              Attempted
+            </span>
           </div>
         </div>
-        <div className="h-44">
+        <div className="h-52">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={difficulty} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barCategoryGap="28%">
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" vertical={false} />
+            <BarChart data={difficulty} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barCategoryGap="12%">
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" />
               <XAxis
                 dataKey="bucket"
-                tick={{ fontSize: 10, fill: "#71717a" }}
+                interval={0}
+                tick={{ fontSize: 9, fill: "#71717a" }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -333,9 +354,12 @@ export default function InsightCards({ subs }: Props) {
                 allowDecimals={false}
               />
               <Tooltip content={<DifficultyTooltip />} cursor={{ fill: "var(--surface-bg)" }} />
-              <Bar dataKey="cf" stackId="d" fill={PLATFORM_COLOR.cf} />
-              <Bar dataKey="atc" stackId="d" fill={PLATFORM_COLOR.atc} />
-              <Bar dataKey="nc" stackId="d" fill={PLATFORM_COLOR.nc} radius={[3, 3, 0, 0]} />
+              <Bar dataKey="solved" stackId="d" isAnimationActive={false}>
+                {difficulty.map(row => (
+                  <Cell key={row.bucket} fill={getBucketColor(row.bucket)} />
+                ))}
+              </Bar>
+              <Bar dataKey="attempted" stackId="d" fill={ATTEMPTED_COLOR} radius={[2, 2, 0, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>

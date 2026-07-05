@@ -1,0 +1,124 @@
+{
+ "Version": 3,
+ "FileReferences": {
+  "Moc": "我也要死吗.moc3",
+  "Textures": [
+   "我也要死吗.2048/texture_00.png",
+   "我也要死吗.2048/texture_01.png"
+  ],
+  "Physics": "我也要死吗.physics3.json",
+  "DisplayInfo": "我也要死吗.cdi3.json",
+  "Expressions": [
+   {
+    "Name": "X嘴",
+    "File": "X嘴.exp3.json"
+   },
+   {
+    "Name": "关闭水印",
+    "File": "关闭水印.exp3.json"
+   },
+   {
+    "Name": "口水",
+    "File": "口水.exp3.json"
+   },
+   {
+    "Name": "吐舌嘴",
+    "File": "吐舌嘴.exp3.json"
+   },
+   {
+    "Name": "我也要死吗",
+    "File": "我也要死吗.exp3.json"
+   },
+   {
+    "Name": "晕晕眼",
+    "File": "晕晕眼.exp3.json"
+   },
+   {
+    "Name": "歪嘴",
+    "File": "歪嘴.exp3.json"
+   },
+   {
+    "Name": "比耶",
+    "File": "比耶.exp3.json"
+   },
+   {
+    "Name": "流汗",
+    "File": "流汗.exp3.json"
+   },
+   {
+    "Name": "爱心眼",
+    "File": "爱心眼.exp3.json"
+   },
+   {
+    "Name": "生气眉毛",
+    "File": "生气眉毛.exp3.json"
+   },
+   {
+    "Name": "眼泪1",
+    "File": "眼泪1.exp3.json"
+   },
+   {
+    "Name": "眼泪2",
+    "File": "眼泪2.exp3.json"
+   },
+   {
+    "Name": "笑嘻",
+    "File": "笑嘻.exp3.json"
+   },
+   {
+    "Name": "组合1 生气",
+    "File": "组合1 生气.exp3.json"
+   },
+   {
+    "Name": "组合2 爱心",
+    "File": "组合2 爱心.exp3.json"
+   },
+   {
+    "Name": "组合3 晕晕",
+    "File": "组合3 晕晕.exp3.json"
+   },
+   {
+    "Name": "组合4 比耶晕晕",
+    "File": "组合4 比耶晕晕.exp3.json"
+   },
+   {
+    "Name": "组合5",
+    "File": "组合5.exp3.json"
+   },
+   {
+    "Name": "脸红",
+    "File": "脸红.exp3.json"
+   },
+   {
+    "Name": "颤抖嘴",
+    "File": "颤抖嘴.exp3.json"
+   },
+   {
+    "Name": "黑眼圈",
+    "File": "黑眼圈.exp3.json"
+   },
+   {
+    "Name": "黑脸",
+    "File": "黑脸.exp3.json"
+   }
+  ]
+ },
+ "Groups": [
+  {
+   "Target": "Parameter",
+   "Name": "EyeBlink",
+   "Ids": [
+    "ParamEyeLOpen",
+    "ParamEyeROpen"
+   ]
+  },
+  {
+   "Target": "Parameter",
+   "Name": "LipSync",
+   "Ids": [
+    "ParamMouthForm",
+    "ParamMouthOpenY"
+   ]
+  }
+ ]
+}

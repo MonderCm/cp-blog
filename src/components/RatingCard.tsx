@@ -240,13 +240,14 @@ function computeTimeTicks(allDates: string[]): string[] {
   return ticks;
 }
 
-function formatTimeTick(ts: number, timeTicks: number[], isYearly: boolean): string {
+const MONTHS_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/* CF 官网同款格式:每个刻度都是 "Nov 2024" */
+function formatTimeTick(ts: number, _timeTicks: number[], isYearly: boolean): string {
   const d = new Date(ts);
-  const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
+  const y = d.getUTCFullYear();
   if (isYearly) return String(y);
-  // 首个刻度和每年1月带年份,其余只显示月份
-  if (m === 1 || timeTicks[0] === ts) return `${y}年${m}月`;
-  return `${m}月`;
+  return `${MONTHS_EN[d.getUTCMonth()]} ${y}`;
 }
 
 export default function RatingCard({ cf, atc, nc, cfContestHistory, atcContestHistory, ncContestHistory, heatmapData, loading }: RatingCardProps) {

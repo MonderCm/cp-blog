@@ -53,6 +53,9 @@
   --heatmap-bg:        rgba(0, 0, 0, 0.03);
   --heat-ring:         rgba(0, 0, 0, 0.25);
 
+  /* 壁纸/视频背景上的调光层:浅色微提亮 */
+  --bg-dim:            rgba(255, 255, 255, 0.10);
+
   /* 强调色:柔和靛蓝 */
   --accent:            #6366f1;
   --accent-soft:       rgba(99, 102, 241, 0.10);
@@ -104,6 +107,9 @@ html.dark {
 
   --heatmap-bg:        rgba(255, 255, 255, 0.03);
   --heat-ring:         rgba(255, 255, 255, 0.4);
+
+  /* 深色模式把壁纸/视频压暗,保证前景可读 */
+  --bg-dim:            rgba(0, 0, 0, 0.45);
 
   --accent:            #818cf8;
   --accent-soft:       rgba(129, 140, 248, 0.12);
@@ -195,6 +201,49 @@ body {
 }
 .heatmap-cell-active:hover {
   box-shadow: 0 0 0 1.5px var(--heat-ring);
+}
+
+/* 方舟式斜切宫格按钮:hover 上浮 + 高亮描边 + 扫光 */
+.hero-tile {
+  position: relative;
+  overflow: hidden;
+}
+.hero-tile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--accent) !important;
+  box-shadow: 0 4px 16px -6px var(--accent-soft);
+}
+.hero-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -70%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+.hero-tile:hover:not(:disabled)::before {
+  left: 130%;
+}
+
+/* 桌宠面板:待机呼吸感,hover 时略微放大 */
+@keyframes pet-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.01); }
+}
+.pet-panel .pet-image {
+  animation: pet-breathe 4s ease-in-out infinite;
+}
+.pet-panel:hover .pet-image {
+  animation-play-state: paused;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, -4px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
 html { scroll-behavior: smooth; }

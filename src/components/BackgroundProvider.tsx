@@ -91,7 +91,8 @@ export default function BackgroundProvider() {
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
           src={bg.value}
         />
-        <div style={{ ...baseStyle, background: "rgba(255,255,255,0.10)" }} />
+        {/* 调光层随主题切换:深色压暗,浅色微提亮 */}
+        <div style={{ ...baseStyle, background: "var(--bg-dim)", transition: "background 0.3s" }} />
       </div>
     );
   }
@@ -105,7 +106,8 @@ export default function BackgroundProvider() {
         alt=""
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
-      <div style={{ ...baseStyle, background: "rgba(255,255,255,0.10)" }} />
+      {/* 调光层随主题切换:深色压暗,浅色微提亮 */}
+      <div style={{ ...baseStyle, background: "var(--bg-dim)", transition: "background 0.3s" }} />
     </div>
   );
 }

@@ -4,11 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import ContestCalendar from "@/components/ContestCalendar";
-import ColorfulSignature from "@/components/ColorfulSignature";
 import SubmissionLog from "@/components/SubmissionLog";
 import SettingsModal from "@/components/SettingsModal";
 import InsightCards from "@/components/InsightCards";
-import ThemeToggle from "@/components/ThemeToggle";
+import HomeHero from "@/components/HomeHero";
 import type { HeatmapProblem } from "@/components/Heatmap";
 import type { RatingData, SubmissionDay, PlatformBuckets } from "@/lib/types";
 import type { CFContestHistoryEntry } from "@/lib/cf-api";
@@ -17,6 +16,9 @@ import type { NCContestHistoryEntry } from "@/lib/nc-api";
 import type { UserProfile } from "@/lib/profile";
 
 export type { RatingData, ProblemEntry, SubmissionDay } from "@/lib/types";
+
+// Live2D 桌宠:依赖 window/WebGL,仅客户端
+const DesktopPet = dynamic(() => import("@/live2d/DesktopPet"), { ssr: false });
 
 // recharts 体积较大 + 依赖 ResizeObserver,延迟到客户端
 const RatingCard = dynamic(() => import("@/components/RatingCard"), {
@@ -54,6 +56,8 @@ const CACHE_VERSION = "v5"; // v5:加入多用户隔离
 const k = (slug: string, suffix: string) => `cp-blog:${slug}:${suffix}`;
 
 type Section = "home" | "submissions" | "contests";
+/** 页面视图:hero 是进站首屏(只有人物+入口),其余是点击宫格后的数据页 */
+type View = "hero" | Section;
 
 function safeGet<T>(key: string): T | null {
   if (typeof window === "undefined") return null;
@@ -102,6 +106,21 @@ function defaultRating(handle: string): RatingData {
 
 function emptyBuckets(): PlatformBuckets<SubmissionDay[]> {
   return { cf: [], atc: [], nc: [] };
+}
+
+/** 今日 AC 题数(按题去重,跨平台合计),喂给桌宠说话用 */
+function countTodaySolved(buckets: PlatformBuckets<SubmissionDay[]>): number {
+  const today = new Date().toISOString().slice(0, 10); // 与提交数据同为 UTC 日期口径
+  const seen = new Set<string>();
+  (["cf", "atc", "nc"] as const).forEach((p) => {
+    for (const day of buckets[p] || []) {
+      if (day.date !== today) continue;
+      for (const prob of day.problems) {
+        if (prob.verdict === "AC" || prob.verdict === "OK") seen.add(`${p}#${prob.id}`);
+      }
+    }
+  });
+  return seen.size;
 }
 
 function buildHeatmap(buckets: PlatformBuckets<SubmissionDay[]>): Record<string, HeatmapProblem[]> {
@@ -163,8 +182,7 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
   const [ncContestHistory, setNCContestHistory] = useState<NCContestHistoryEntry[]>([]);
   const [fetching, setFetching] = useState(true);
   const [fetchError, setFetchError] = useState("");
-  const [navOpen, setNavOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<Section>("home");
+  const [view, setView] = useState<View>("hero");
 
   const mountedRef = useRef(false);
 
@@ -246,19 +264,43 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
       }
     }
 
-    const savedSection = safeGetString(k(slug, "section"));
-    if (savedSection === "home" || savedSection === "submissions" || savedSection === "contests") {
-      setActiveSection(savedSection);
-    }
+    // 刷新/直链进入时从 URL hash 恢复板块,不踢回首屏
+    const h = window.location.hash.slice(1);
+    if (h === "home" || h === "submissions" || h === "contests") setView(h);
 
     refreshAll();
   }, [slug, refreshAll]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const handleSectionChange = (s: Section) => {
-    setActiveSection(s);
-    safeSetString(k(slug, "section"), s);
-  };
+  /* 视图切换写入浏览器历史 + URL hash:
+   * - 后退/侧键回到首屏而不是退出网站
+   * - 刷新后从 hash 恢复当前板块,不会被踢回首屏 */
+  const isSection = (v: string): v is Section => v === "home" || v === "submissions" || v === "contests";
+
+  const enterSection = useCallback((s: Section) => {
+    window.history.pushState({ view: s }, "", `#${s}`);
+    setView(s);
+  }, []);
+
+  const backToHero = useCallback(() => {
+    // 由 enterSection 压入的历史 → 正常后退;刷新/直链进入(历史是 Next 内部状态)→ 原地切回
+    if (window.history.state?.view) {
+      window.history.back();
+    } else {
+      window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+      setView("hero");
+    }
+  }, []);
+
+  useEffect(() => {
+    // bfcache/前进后退导致的水合卡死由 layout.tsx 的内联脚本负责刷新兜底
+    const onPop = () => {
+      const h = window.location.hash.slice(1);
+      setView(isSection(h) ? h : "hero");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   const handleSave = useCallback(async (data: UserProfile) => {
     const merged = { ...profile, ...data, slug }; // slug 不可改
@@ -292,109 +334,70 @@ export default function HomePageClient({ profile: initialProfile }: Props) {
 
   return (
     <>
-      {/* 左侧功能区 */}
-      <div className="fixed left-0 top-1/2 -translate-y-1/2 z-40 flex">
-        <div
-          className="w-3 h-32 cursor-pointer group"
-          onMouseEnter={() => setNavOpen(true)}
-          onClick={() => setNavOpen((prev) => !prev)}
-        />
-        <div
-          className={`themed-bar flex flex-col gap-0.5 px-1.5 py-2.5 border rounded-r-xl transition-all duration-300 overflow-hidden min-w-[110px]
-            ${navOpen ? "w-auto opacity-100" : "w-0 opacity-0 pointer-events-none"}
-            lg:w-auto lg:opacity-100 lg:pointer-events-auto`}
-          onMouseLeave={() => setNavOpen(false)}
-        >
-          <button
-            onClick={() => handleSectionChange("home")}
-            className={`text-[11px] py-1.5 px-2.5 rounded-lg whitespace-nowrap transition-colors ${
-              activeSection === "home"
-                ? "text-[var(--accent-text)] bg-[var(--accent-soft)]"
-                : "text-foreground/60 hover:text-foreground hover:bg-[var(--surface-bg)]"
-            }`}
-          >首页</button>
-          <button
-            onClick={() => handleSectionChange("submissions")}
-            className={`text-[11px] py-1.5 px-2.5 rounded-lg whitespace-nowrap transition-colors ${
-              activeSection === "submissions"
-                ? "text-[var(--accent-text)] bg-[var(--accent-soft)]"
-                : "text-foreground/60 hover:text-foreground hover:bg-[var(--surface-bg)]"
-            }`}
-          >刷题日志</button>
-          <div className="w-full h-px bg-[var(--card-border)] my-1" />
-          <button
-            onClick={() => handleSectionChange("contests")}
-            className={`text-[11px] py-1.5 px-2.5 rounded-lg whitespace-nowrap transition-colors ${
-              activeSection === "contests"
-                ? "text-[var(--accent-text)] bg-[var(--accent-soft)]"
-                : "text-foreground/60 hover:text-foreground hover:bg-[var(--surface-bg)]"
-            }`}
-          >近期比赛</button>
-        </div>
-      </div>
+      {view === "hero" ? (
+        <>
+          {/* 进站首屏:只有人物与功能入口,不展示数据 */}
+          <HomeHero
+            name={profile.name}
+            cfHandle={profile.cfHandle}
+            atcHandle={profile.atcHandle}
+            ncHandle={profile.ncHandle}
+            onEnterSection={enterSection}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
 
-      {/* 顶部栏 */}
-      <header className="themed-bar fixed top-0 left-0 right-0 z-30 border-b">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="w-16" />
-          <div className="flex-1 flex justify-center px-4">
-            <div className="opacity-80 max-w-[320px]">
-              <ColorfulSignature text={profile.signature || "代码改变世界"} />
+          {/* 首屏下方:待规划区域,先留框架 */}
+          <div className="max-w-6xl mx-auto px-6 pb-10">
+            <div className="h-px mb-6" style={{ background: "var(--surface-border)" }} />
+            <div
+              className="rounded-2xl border border-dashed flex items-center justify-center h-40 text-xs text-muted-foreground/60"
+              style={{ borderColor: "var(--surface-border)" }}
+            >
+              待规划区域
             </div>
           </div>
-          <div className="flex items-center gap-2.5 flex-shrink-0">
-            <ThemeToggle />
-            <div className="flex flex-col items-end leading-tight">
-              <span className="text-[11px] font-medium text-foreground/80">{profile.name}</span>
-              <button
-                onClick={() => setSettingsOpen(true)}
-                className="text-[10px] text-foreground/30 hover:text-foreground/60 transition-colors"
-              >编辑</button>
-            </div>
-            <div className="relative">
-              <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-[var(--card-border)]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={profile.avatar} alt="头像" className="w-full h-full object-cover" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
-        {fetching && (
-          <div className="text-xs text-muted-foreground flex items-center gap-2 mb-4">
-            <span className="inline-block w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: "var(--accent-soft)", borderTopColor: "var(--accent)" }} />
-            正在获取最新数据...
-          </div>
-        )}
-        {fetchError && <div className="text-xs text-red-400/80 mb-4">{fetchError}</div>}
-
-        {activeSection === "home" && (
-          <section className="mb-8">
-            <RatingCard cf={cfRating} atc={atcRating} nc={ncRating} cfContestHistory={cfContestHistory} atcContestHistory={atcContestHistory} ncContestHistory={ncContestHistory} heatmapData={heatmapData} loading={fetching} />
-            <InsightCards subs={subs} />
-          </section>
-        )}
-
-        {activeSection === "submissions" && (
-          <section>
-            <h2 className="text-sm font-medium mb-4 text-muted-foreground">
-              刷题日志
+        </>
+      ) : (
+        <div className="max-w-6xl mx-auto px-6 pt-5 pb-8">
+          {/* 数据页顶栏:返回首屏 + 页面标题 */}
+          <div className="flex items-center gap-3 mb-5">
+            <button
+              onClick={backToHero}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-foreground/70 hover:text-foreground transition-colors"
+              style={{ background: "var(--surface-bg)", border: "1px solid var(--surface-border)" }}
+            >
+              ← 返回
+            </button>
+            <h2 className="text-sm font-medium text-muted-foreground">
+              {view === "home" && "首页 · Rating 与统计"}
+              {view === "submissions" && "学习记录"}
+              {view === "contests" && "近期比赛"}
             </h2>
+            {fetching && (
+              <span className="inline-block w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: "var(--accent-soft)", borderTopColor: "var(--accent)" }} />
+            )}
+          </div>
+          {fetchError && <div className="text-xs text-red-400/80 mb-4">{fetchError}</div>}
+
+          {view === "home" && (
+            <section className="mb-8">
+              <RatingCard cf={cfRating} atc={atcRating} nc={ncRating} cfContestHistory={cfContestHistory} atcContestHistory={atcContestHistory} ncContestHistory={ncContestHistory} heatmapData={heatmapData} loading={fetching} />
+              <InsightCards subs={subs} />
+            </section>
+          )}
+
+          {view === "submissions" && (
             <SubmissionLog cfSubmissions={subs.cf} atcSubmissions={subs.atc} ncSubmissions={subs.nc} />
-          </section>
-        )}
+          )}
 
-        {activeSection === "contests" && (
-          <section>
-            <h2 className="text-sm font-medium mb-4 text-muted-foreground">
-              近期比赛
-            </h2>
+          {view === "contests" && (
             <ContestCalendar cfContests={contests.cf} atcContests={contests.atc} ncContests={contests.nc} />
-          </section>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+
+      {/* 右下角 Live2D 桌宠:数据就绪后按今日 AC 数打招呼 */}
+      <DesktopPet todaySolved={fetching ? undefined : countTodaySolved(subs)} />
 
       <SettingsModal
         isOpen={settingsOpen}

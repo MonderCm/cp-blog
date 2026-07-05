@@ -35,6 +35,28 @@ export default function RootLayout({
     })();
   `;
 
+  // 前进/后退回到本站时页面可能是缓存快照(bfcache 或 disk cache),React 水合会
+  // 卡死导致全页按钮失灵。必须放内联脚本(React 之外)自动刷新一次,sessionStorage
+  // 防死循环。pageshow 覆盖 bfcache 恢复(该场景不重新执行脚本,只触发事件)。
+  const bfReloadScript = `
+    (function() {
+      try {
+        var nav = performance.getEntriesByType('navigation')[0];
+        if (nav && nav.type === 'back_forward') {
+          if (!sessionStorage.getItem('cp-bf-reload')) {
+            sessionStorage.setItem('cp-bf-reload', '1');
+            location.reload();
+            return;
+          }
+        }
+        sessionStorage.removeItem('cp-bf-reload');
+        window.addEventListener('pageshow', function(e) {
+          if (e.persisted) location.reload();
+        });
+      } catch (e) {}
+    })();
+  `;
+
   return (
     <html
       lang="zh-CN"
@@ -43,6 +65,7 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
+        <script dangerouslySetInnerHTML={{ __html: bfReloadScript }} />
       </head>
       <body className="min-h-full text-foreground" style={{ fontFamily: "'DM Sans', sans-serif" }}>
         <BackgroundProvider />
